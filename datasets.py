@@ -23,7 +23,6 @@ class CFGDataset(Dataset):
         for sentence in tqdm(data, total = length):
             #shuffle sentence
             
-            
             self.sentences.append(torch.tensor(sentence, dtype=torch.long))
     
         self.length = length

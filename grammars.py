@@ -1,6 +1,6 @@
 from nltk import CFG
 
-grammar = grammar_str = """
+grammar_cfg3b  = """
         22 -> 21 20
         22 -> 20 19
         19 -> 16 17 18
@@ -35,4 +35,4 @@ grammar = grammar_str = """
                         9 -> "b" "a" 
         """
 
-GRAMMAR = CFG.fromstring(grammar_str)
+GRAMMAR_CFG3b = CFG.fromstring(grammar_cfg3b)

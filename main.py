@@ -7,16 +7,22 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torchinfo import summary
 from datasets import CFGDataset
-from grammars import GRAMMAR
+from grammars import GRAMMAR_CFG3b
+from models import model
 import wandb
+import numpy as np
+import os
+
+
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("device: ", device)
 
-CHECKPOINT_PATH = "/checkpoints/"
+CHECKPOINT_PATH = "checkpoints"
+os.makedirs(CHECKPOINT_PATH, exist_ok=True)
+MODEL_NAME = "lstm_e30_e32_h16-cfg3b.pth"
 
-
-def train(model:nn.Module, train_loader, optimizer, criterion):
+def train(model, train_loader, optimizer, criterion, epoch, total_epochs):
     
     model.train()
     
@@ -24,6 +30,10 @@ def train(model:nn.Module, train_loader, optimizer, criterion):
 
     total_loss = 0
     total_accuracy = 0
+    
+    start_prob = 0.2
+    end_prob = 0.7
+    teacher_forcing_prob = start_prob + (end_prob - start_prob) * (epoch / total_epochs)
     
     for i, data in enumerate(train_loader):
         optimizer.zero_grad()
@@ -37,27 +47,34 @@ def train(model:nn.Module, train_loader, optimizer, criterion):
         hidden = None
         outputs = []
         
+        
+        
         with torch.cuda.amp.autocast():
             
             input_token = x[:,0].unsqueeze(1) #shape (batch_size,1)
             
             for j in range(seq_len):
                 
-                
                 logits, hidden = model(input_token, hidden)
                 logits = logits.squeeze(1) #shape (batch_size, vocab_size)
                 outputs.append(logits)
                 
-                #_, predicted = torch.max(logits, dim=1)
-                
-                #predicted = predicted.unsqueeze(1) #shape (batch_size,1)
-                if j  < seq_len - 1:
-                    
-                    #add teacher forcing with probability 0.5
-                    if np.random.rand() < 0.5:
-                        input_token = outputs[:, j+1].unsqueeze(1)
-                    else:
+                #do teacher forcing for the first 5 epoch
+                if epoch <= 5:
+                    if j < seq_len - 1:
                         input_token = x[:, j+1].unsqueeze(1)
+                elif epoch > 5 and epoch <= 25:
+                    
+                    if j  < seq_len - 1:
+                        #add teacher forcing with probability 0.5
+                        if np.random.rand() < teacher_forcing_prob:
+                            _, predicted = torch.max(logits, dim=1)
+                            input_token = predicted.unsqueeze(1)
+                        else:
+                            input_token = x[:, j+1].unsqueeze(1)
+                else:
+                    _, predicted = torch.max(logits, dim=1)
+                    input_token = predicted.unsqueeze(1)
 
             outputs = torch.stack(outputs, dim=1) #shape (batch_size, seq_len, vocab_size)
             loss = criterion(outputs.view(-1, outputs.size(-1)), y.view(-1))
@@ -137,14 +154,13 @@ def validate_model(model:nn.Module, val_loader, criterion):
             
     
 
-train_data =  CFGDataset(data_file="cfg_sentences_train.pkl", subset = 0.1)
+train_data =  CFGDataset(data_file="cfg_sentences_train.pkl", subset = 1)
 train_loader = DataLoader(train_data, batch_size=512, shuffle=True, collate_fn=train_data.collate_fn, num_workers=12, pin_memory=True)
 
-val_data = CFGDataset(data_file="cfg_sentences_val.pkl", subset = 0.1)
+val_data = CFGDataset(data_file="cfg_sentences_val.pkl", subset = 1)
 val_loader = DataLoader(val_data, batch_size=512, shuffle=True, collate_fn=val_data.collate_fn, num_workers=12, pin_memory=True)
 
 
-model = BasicModel(vocab_size=3, embed_dim=32, hidden_dim=16).to(device)   
      
 scaler = torch.cuda.amp.GradScaler()
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
@@ -165,7 +181,7 @@ def save_model(model, optimizer, scheduler, metric, scaler, epoch, path):
          path
     )
 
-
+"""
 wandb.login(key="11902c0c8e2c6840d72bf65f04894b432d85f019")
 
 wandb.init(
@@ -173,19 +189,16 @@ wandb.init(
         project="thesis",
         reinit = True,
         )
-
-
-check_point_path = "checkpoints/LSTM-cfg3b.pth"
-
-num_epochs = 100
-wandb.watch(model, log="all")
+"""
+num_epochs = 30
+#wandb.watch(model, log="all")
 
 for epoch in range(num_epochs):
     
     print("\nEpoch: {}/{}".format(epoch + 1, num_epochs))
     curr_lr = optimizer.param_groups[0]['lr']
     
-    train_loss, train_acc = train(model, train_loader, optimizer, criterion)
+    train_loss, train_acc = train(model, train_loader, optimizer, criterion, epoch, num_epochs)
     val_los, val_acc = validate_model(model, val_loader, criterion)
     
     print("Train Loss: {:.04f}, Train Acc: {:.04f}".format(train_loss, train_acc))
@@ -193,7 +206,8 @@ for epoch in range(num_epochs):
     
     #wandb.log({"train_loss": train_loss, "train_acc": train_acc, "val_loss": val_los, "val_acc": val_acc})
 
-    #save_model(model, optimizer, None, ("val_loss", val_los), scaler, epoch, check_point_path)
+    checkpoint_path = os.path.join(CHECKPOINT_PATH, MODEL_NAME)
+    save_model(model, optimizer, None, ("val_loss", val_los), scaler, epoch, checkpoint_path)
     #artifact = wandb.Artifact("LSTM-cfg3b", type="model")
     #artifact.add_file(check_point_path)
     #wandb.log_artifact(artifact)

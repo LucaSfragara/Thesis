@@ -1,0 +1,2 @@
+- number of LSTM layers vs tree
+- add a separate dataloader for text example
