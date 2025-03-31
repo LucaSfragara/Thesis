@@ -8,19 +8,21 @@ from torch.utils.data import DataLoader
 from torchinfo import summary
 from datasets import CFGDataset
 from grammars import GRAMMAR_CFG3b
-from models import model
+from models import model_basic, model_large1
 import wandb
 import numpy as np
 import os
-
+from train_utils import save_model, load_model
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("device: ", device)
 
+model = model_large1
+
 CHECKPOINT_PATH = "checkpoints"
 os.makedirs(CHECKPOINT_PATH, exist_ok=True)
-MODEL_NAME = "lstm_e30_e32_h16-cfg3b.pth"
+MODEL_NAME = "lstm_e30_e128_h512-cfg3b.pth"
 
 def train(model, train_loader, optimizer, criterion, epoch, total_epochs):
     
@@ -154,10 +156,10 @@ def validate_model(model:nn.Module, val_loader, criterion):
             
     
 
-train_data =  CFGDataset(data_file="cfg_sentences_train.pkl", subset = 1)
+train_data =  CFGDataset(data_file="cfg_sentences_train_cfg3b.pkl", subset = .2)
 train_loader = DataLoader(train_data, batch_size=512, shuffle=True, collate_fn=train_data.collate_fn, num_workers=12, pin_memory=True)
 
-val_data = CFGDataset(data_file="cfg_sentences_val.pkl", subset = 1)
+val_data = CFGDataset(data_file="cfg_sentences_val_cfg3b.pkl", subset = .2)
 val_loader = DataLoader(val_data, batch_size=512, shuffle=True, collate_fn=val_data.collate_fn, num_workers=12, pin_memory=True)
 
 
@@ -170,16 +172,6 @@ x, y = next(iter(train_loader))
 
 print(summary(model, input_data = [x.to(device)]))
 
-def save_model(model, optimizer, scheduler, metric, scaler, epoch, path):
-    torch.save(
-        {'model_state_dict'         : model.state_dict(),
-         'optimizer_state_dict'     : optimizer.state_dict(),
-         'scheduler_state_dict'     : scheduler.state_dict() if scheduler is not None else {},
-         'scaler_state_dict'        : scaler.state_dict() if scaler is not None else {},
-         metric[0]                  : metric[1],
-         'epoch'                    : epoch},
-         path
-    )
 
 """
 wandb.login(key="11902c0c8e2c6840d72bf65f04894b432d85f019")
@@ -191,9 +183,23 @@ wandb.init(
         )
 """
 num_epochs = 30
+
+last_epoch_completed = 0
+
+RESUME_TRAINING = False
+
+if RESUME_TRAINING:
+    
+    best_model_path = 'checkpoints/lstm_e30_e32_h16-cfg3b.pth'
+    model, optimizer, scheduler, last_epoch_completed, metric = load_model(model, optimizer, None, scaler, best_model_path)
+
+print("Last epoch completed: ", last_epoch_completed)
+
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=5e-5)
+
 #wandb.watch(model, log="all")
 
-for epoch in range(num_epochs):
+for epoch in range(last_epoch_completed, num_epochs):
     
     print("\nEpoch: {}/{}".format(epoch + 1, num_epochs))
     curr_lr = optimizer.param_groups[0]['lr']
@@ -205,7 +211,7 @@ for epoch in range(num_epochs):
     print("Val Loss: {:.04f}, Val Acc: {:.04f}".format(val_los, val_acc))
     
     #wandb.log({"train_loss": train_loss, "train_acc": train_acc, "val_loss": val_los, "val_acc": val_acc})
-
+    scheduler.step()
     checkpoint_path = os.path.join(CHECKPOINT_PATH, MODEL_NAME)
     save_model(model, optimizer, None, ("val_loss", val_los), scaler, epoch, checkpoint_path)
     #artifact = wandb.Artifact("LSTM-cfg3b", type="model")

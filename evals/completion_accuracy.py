@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import torch
-from models import model
+from models import model_large1
 from tqdm import tqdm
 from datasets import CFGDataset
 from torch import nn
@@ -12,7 +12,10 @@ import numpy as np
 from CFG_parsers import CFGParser
 from grammars import GRAMMAR_CFG3b
 
-def completion_accuracy(model, data_loader, device, prefix_length = 10):
+
+model = model_large1
+
+def completion_accuracy(model, data_loader, device, prefix_length = 20):
     
     model.eval()
     
@@ -66,9 +69,10 @@ def completion_accuracy(model, data_loader, device, prefix_length = 10):
 if __name__ == "__main__":
     
 
-    checkpoint_state_dict = torch.load('checkpoints/lstm-cfg3b.pth')
+    checkpoint_state_dict = torch.load('checkpoints/lstm_e30_e128_h512-cfg3b.pth')
     model.load_state_dict(checkpoint_state_dict['model_state_dict'])
-    val_data = CFGDataset('cfg_sentences_val.pkl', subset = 1)
+    #print(checkpoint_state_dict['epoch'])
+    val_data = CFGDataset('cfg_sentences_val_cfg3b.pkl', subset = 1)
     data_loader = DataLoader(val_data, batch_size=512, shuffle=False, pin_memory=True, num_workers=12, collate_fn=val_data.collate_fn)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
