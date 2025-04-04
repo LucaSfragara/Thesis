@@ -79,7 +79,11 @@ def train(model, train_loader, optimizer, criterion, epoch, total_epochs):
                     input_token = predicted.unsqueeze(1)
 
             outputs = torch.stack(outputs, dim=1) #shape (batch_size, seq_len, vocab_size)
+            
+            #mask = (y.view(-1) != -1)
+            
             loss = criterion(outputs.view(-1, outputs.size(-1)), y.view(-1))
+            
             total_loss += loss.item()
             
             total_accuracy += (torch.argmax(outputs, dim=2) == y).sum().item() / (batch_size * seq_len)
@@ -156,17 +160,17 @@ def validate_model(model:nn.Module, val_loader, criterion):
             
     
 
-train_data =  CFGDataset(data_file="cfg_sentences_train_cfg3b.pkl", subset = .2)
-train_loader = DataLoader(train_data, batch_size=512, shuffle=True, collate_fn=train_data.collate_fn, num_workers=12, pin_memory=True)
+train_data =  CFGDataset(data_file="cfg_sentences_train_cfg3b.pkl", subset = 1)
+train_loader = DataLoader(train_data, batch_size=1024, shuffle=True, collate_fn=train_data.collate_fn, num_workers=12, pin_memory=True)
 
-val_data = CFGDataset(data_file="cfg_sentences_val_cfg3b.pkl", subset = .2)
-val_loader = DataLoader(val_data, batch_size=512, shuffle=True, collate_fn=val_data.collate_fn, num_workers=12, pin_memory=True)
+val_data = CFGDataset(data_file="cfg_sentences_val_cfg3b.pkl", subset = 1)
+val_loader = DataLoader(val_data, batch_size=1024, shuffle=True, collate_fn=val_data.collate_fn, num_workers=12, pin_memory=True)
 
 
      
 scaler = torch.cuda.amp.GradScaler()
-optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
-criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.AdamW(model.parameters(), lr=6e-3, weight_decay=1.5e-2)
+criterion = nn.CrossEntropyLoss(ignore_index=-1)
 
 x, y = next(iter(train_loader))
 
