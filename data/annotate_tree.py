@@ -5,7 +5,7 @@ sys.path.append("..")
 import numpy as np
 
 import nltk
-from grammars import GRAMMAR_CFG3b_string
+from data.grammars import GRAMMAR_CFG3b_string
 from functools import lru_cache
 
 from pprint import pprint

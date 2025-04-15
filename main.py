@@ -1,13 +1,11 @@
-from math import log
-from re import T
-from turtle import forward
+
 import torch
 from torch import nn
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torchinfo import summary
-from datasets import CFGDataset
-from grammars import GRAMMAR_CFG3b
+from data.datasets import CFGDataset
+from data.grammars import GRAMMAR_CFG3b
 from models import model_basic, model_large1
 import wandb
 import numpy as np

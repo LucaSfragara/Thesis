@@ -3,7 +3,7 @@ from nltk import CFG
 from nltk.parse.generate import generate
 from tqdm import tqdm
 import pickle
-from grammars import GRAMMAR_CFG3b 
+from data.grammars import GRAMMAR_CFG3b 
 import numpy as np
 import random
 

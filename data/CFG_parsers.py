@@ -1,7 +1,7 @@
 import nltk
 from nltk import CFG
 from nltk.parse.chart import ChartParser
-from grammars import GRAMMAR_CFG3b
+from data.grammars import GRAMMAR_CFG3b
 
 class CFGParser:
     def __init__(self, grammar):

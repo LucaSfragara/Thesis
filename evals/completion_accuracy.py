@@ -5,12 +5,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 from models import model_large1
 from tqdm import tqdm
-from datasets import CFGDataset
+from data.datasets import CFGDataset
 from torch import nn
 from torch.utils.data import DataLoader
 import numpy as np
-from CFG_parsers import CFGParser
-from grammars import GRAMMAR_CFG3b
+from data.CFG_parsers import CFGParser
+from data.grammars import GRAMMAR_CFG3b
 from collections import Counter
 
 
