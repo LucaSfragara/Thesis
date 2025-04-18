@@ -28,13 +28,14 @@ grammar_cfg3b  = """
 11 -> 7 8 9
 12 -> 8 9 7
 12 -> 9 7 8
-7 -> c a
-7 -> a b c
-8 -> c b
-8 -> c a b
-9 -> c b a
-9 -> b a 
+7 -> "c" "a"
+7 -> "a" "b" "c"
+8 -> "c" "b"
+8 -> "c" "a" "b"
+9 -> "c" "b" "a"
+9 -> "b" "a" 
 """
+
 
 GRAMMAR_CFG3b = CFG.fromstring(grammar_cfg3b)
 GRAMMAR_CFG3b_string = grammar_cfg3b

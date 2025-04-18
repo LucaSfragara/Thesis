@@ -38,14 +38,18 @@ class CFGDataset(IterableDataset):
         #ADD SOS and EOS tokens to each sequence
         self.eos_token = eos_token
         self.sos_token = sos_token
-        
+        print(data[1000])
         # Add SOS and EOS tokens to each sequence
-        data = [np.concatenate((np.array([sos_token]), seq, np.array([eos_token]))) for seq in data]        
+        data = [np.concatenate(
+                    (np.array([sos_token]), seq, np.array([eos_token]))
+            , axis = 0) for seq in data]        
 
-        
+        print("len data",  len(data))
+        print(data[1000])
         flattened_seq= np.concatenate(data, axis = 0)
-        flattened_seq_tensor = torch.from_numpy(flattened_seq).long()
         
+        flattened_seq_tensor = torch.from_numpy(flattened_seq).long()
+        print(flattened_seq_tensor.shape)
         self.total_tokens = flattened_seq_tensor.numel() # total number of tokens in the dataset
         
         self.n_batches = flattened_seq_tensor.numel() // (batch_size * seq_len) # drop extra so divisible by (batch size*seq_len)
@@ -54,7 +58,9 @@ class CFGDataset(IterableDataset):
         
         self.sequences = flattened_seq_tensor.view(batch_size, -1) # (batch_size, n_batches * seq_len)
         self.seq_len = seq_len
-      
+
+        #check sequence len is non 0
+        assert data[0].shape[0] > 0, "Sequence length is 0"
         
     def __len__(self):
         
@@ -121,11 +127,11 @@ if __name__ == "__main__":
     # Example usage
     data_file = "/ocean/projects/cis250019p/sfragara/lstm/cfg_sentences_train_cfg3b.pkl"
     subset = 1
-    batch_size = 96
+    batch_size = 512
     seq_len = 512
     sos_token = 0
     eos_token = 4
     
     dataset = CFGDataset(data_file, subset, batch_size, seq_len, sos_token, eos_token)
-    dataloader = DataLoader(dataset, batch_size=None, num_workers=4)
+    dataloader = DataLoader(dataset, batch_size=None, num_workers=12)
     verify_dataloader(dataloader)

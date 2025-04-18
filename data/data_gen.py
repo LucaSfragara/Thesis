@@ -3,15 +3,14 @@ from nltk import CFG
 from nltk.parse.generate import generate
 from tqdm import tqdm
 import pickle
-from data.grammars import GRAMMAR_CFG3b 
+from grammars import GRAMMAR_CFG3b 
 import numpy as np
 import random
+from multiprocessing import Pool, cpu_count
 
-length = 800000
-data = []
 
 terminals_to_idx = {'a':1, 'b':2, 'c':3}
-
+data = []
 
 def random_derivation(grammar, symbol=None):
    
@@ -43,31 +42,30 @@ def random_derivation(grammar, symbol=None):
     result = []
     for rhs_sym in chosen_prod.rhs():
         result.extend(random_derivation(grammar, rhs_sym))
-    
     return result
 
     
-    
+def gen_sentence(_):
+    # generate one sentence, convert to idx array
+    sent = random_derivation(GRAMMAR_CFG3b)
+    return np.array([terminals_to_idx[t] for t in sent], dtype=np.uint8)
+
 if __name__ == "__main__":
-    
-    for sentence in tqdm(range(length), desc="Generating sentences"):
-            #print(sentence)
-            
-            sentence = random_derivation(GRAMMAR_CFG3b)
-            
-            sentence_integers = [terminals_to_idx[term] for term in sentence]
-    
-            # Store as numpy uint8 array (much more memory efficient)
-            data.append(np.array(sentence_integers, dtype=np.uint8))
-     
-    #write data to jsonl
 
-    with open('cfg_sentences_train_cfg3b.pkl', 'wb') as f:
-        pickle.dump(data[:length//2], f, protocol=4)
+    length = 8_000_000  # number of sentences to generate
+    n_procs = min(cpu_count(), 8)    # or whatever cap you want
+    with Pool(n_procs) as pool:
+        # imap is lazy; tqdm will show progress
+        data = list(tqdm(pool.imap(gen_sentence, range(length)),
+                         total=length,
+                         desc="Generating CFG sentences"))
+    # split train/val
+    split = int(0.9 * length)
+    
+    with open("cfg_sentences_train_cfg3b.pkl", "wb") as f:
+        pickle.dump(data[:split], f, protocol=4)
+    with open("cfg_sentences_val_cfg3b.pkl", "wb") as f:
+        pickle.dump(data[split:], f, protocol=4)
         
-    with open('cfg_sentences_val_cfg3b.pkl', 'wb') as f:
-        pickle.dump(data[length//2:], f, protocol=4)
-
-    print("Data saved to cfg_sentences_train.pkl")
-    print("Data saved to cfg_sentences_val.pkl")
-    
+    print("Lenghts Quartiles: ")
+    print(np.percentile([len(d) for d in data], [25, 50, 75]))

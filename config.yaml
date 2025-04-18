@@ -2,7 +2,7 @@
 
 ###### Dataset -----------------------------------------------------------------
 data:                    
-  subset               : 0.1      # Load a subset of the data (for debugging, testing, etc
+  subset               : 1     # Load a subset of the data (for debugging, testing, etc
   batch_size           : 512     #
   seq_len             : 512      # Sequence length
   vocab_size         : 3    # Vocabulary size
