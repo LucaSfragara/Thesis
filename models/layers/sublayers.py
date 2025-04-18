@@ -30,24 +30,21 @@ class SelfAttentionLayer(nn.Module):
         
 
 
-    def forward(self, x: torch.Tensor, key_padding_mask: Optional[torch.Tensor] = None, attn_mask: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         '''
         Forward pass for the SelfAttentionLayer.
         Args:
             x (torch.Tensor): The input tensor. shape: (batch_size, seq_len, d_model)   
-            key_padding_mask (Optional[torch.Tensor]): The padding mask for the key input. shape: (batch_size, seq_len)
-            attn_mask (Optional[torch.Tensor]): The attention mask. shape: (seq_len, seq_len)
 
         Returns:
             x (torch.Tensor): The output tensor. shape: (batch_size, seq_len, d_model)
             mha_attn_weights (torch.Tensor): The attention weights. shape: (batch_size, seq_len, seq_len)   
         '''
         
-        
         self.input = x
         x = self.norm(x)
         
-        x, mha_attn_weights = self.mha.forward(x, x, x, key_padding_mask = key_padding_mask, attn_mask=attn_mask)
+        x, mha_attn_weights = self.mha.forward(x, x, x)
         
         x = self.dropout(x) 
         x = x + self.input

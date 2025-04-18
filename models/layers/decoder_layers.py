@@ -42,7 +42,7 @@ class SelfAttentionDecoderLayer(nn.Module):
         '''
         # TODO: Implement forward: Follow the figure in the writeup
 
-        x, mha_attn_weights = self.self_attn.forward(x, key_padding_mask=key_padding_mask, attn_mask =attn_mask )
+        x, mha_attn_weights = self.self_attn.forward(x)
         x = self.ffn(x)
         
         # TODO: Return the output tensor and attention weights

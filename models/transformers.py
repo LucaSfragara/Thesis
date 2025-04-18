@@ -17,7 +17,7 @@ class DecoderOnlyTransformer(nn.Module):
             num_heads: int, 
             d_ff: int, 
             dropout: float, 
-            max_len: int, 
+            seq_len: int, 
             num_classes: int,
             weight_tying: bool = False,
             layer_drop_rate: float = 0.0,
@@ -31,7 +31,7 @@ class DecoderOnlyTransformer(nn.Module):
             num_heads: int, number of attention heads
             d_ff: int, feed-forward dimension
             dropout: float, dropout rate
-            max_len: int, maximum sequence length this model can handle
+            seq_len: int, sequence length
             num_classes: int, number of classes
             weight_tying: bool, whether to use weight tying (default: False)
             layer_drop_rate: float, layer drop rate (default: 0.0)
@@ -42,7 +42,7 @@ class DecoderOnlyTransformer(nn.Module):
 
         # Initialize the decoder
         # DO NOT MODIFY THESE ATTRIBUTES
-        self.max_len         = max_len
+        self.seq_len         = seq_len
         self.layer_drop_rate = layer_drop_rate
         self.num_classes     = num_classes
         self.num_layers      = num_layers
@@ -54,7 +54,7 @@ class DecoderOnlyTransformer(nn.Module):
 
         # TODO: Create target embedding and other layers
         self.target_embedding       = nn.Embedding(num_classes, d_model)
-        self.positional_encoding    = PositionalEncoding(d_model, max_len) # Positional encoding
+        self.positional_encoding    = PositionalEncoding(d_model, seq_len) # Positional encoding
         self.final_linear           = nn.Linear(d_model, num_classes) # Final linear layer
         self.dropout                = nn.Dropout(dropout) # Dropout
         self.norm                   = nn.LayerNorm(d_model) # Layer norm
@@ -64,35 +64,22 @@ class DecoderOnlyTransformer(nn.Module):
             self.target_embedding.weight = self.final_linear.weight
 
 
-    def forward(self, padded_targets: torch.Tensor, target_lengths: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, dict]:
+    def forward(self, padded_targets: torch.Tensor) -> Tuple[torch.Tensor, dict]:
+        
         '''
         Forward pass for the decoder. Used for Training only. Tokens are assumed to be right-padded.
         Args:
             padded_targets (torch.Tensor): The padded target sequence. shape: (batch_size, seq_len)
-            target_lengths (Optional[torch.Tensor]): The lengths of the target sequences. shape: (batch_size,)
         Returns:
             seq_out (torch.Tensor): The output sequence. shape: (batch_size, seq_len, d_model)
             runnint_att (dict): The attention weights. shape: (batch_size, seq_len, seq_len)
         '''
-        # DO NOT MODIFY 
-        if self.training and target_lengths is None:
-            raise ValueError("target_lengths must be provided during training")
-        
-        # TODO: Implement forward
-
-        # TODO: Create padding mask for padded_targets on the same device as the input (use PadMask)
-        pad_mask_dec = None
-        if target_lengths is not None:
-            pad_mask_dec = PadMask(padded_targets,target_lengths).to(padded_targets.device)
-        
-        # TODO: Create causal mask to prevent attending to future tokens on the same device as the input (use CausalMask)
-        causal_mask = CausalMask(padded_targets).to(padded_targets.device)
-
-        # TODO: Apply the embedding
+    
         x = self.target_embedding(padded_targets)
-        # TODO: Apply positional encoding
+
         x = self.positional_encoding(x)
-        # TODO: Apply dropout 
+  
+  
         x = self.dropout(x)
 
         # TODO: Pass through all decoder layers, save attention masks
@@ -103,7 +90,7 @@ class DecoderOnlyTransformer(nn.Module):
                 continue
             
             # TODO: Pass through decoder layer
-            x, attention = self.dec_layers[i](x, key_padding_mask = pad_mask_dec, attn_mask = causal_mask)
+            x, attention = self.dec_layers[i](x)
             
             # TODO: Save attention weights  
             runnint_att['layer{}_dec_self'.format(i + 1)] = attention #shape (batch_size, seq_len, seq_len) 

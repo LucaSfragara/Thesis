@@ -13,7 +13,6 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Tuple
 from torchinfo import summary
 
-
 class BaseTrainer(ABC):
     """
     Base Trainer class that provides common functionality for all trainers.
@@ -81,6 +80,12 @@ class BaseTrainer(ABC):
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         
+        
+        # enable cuDNN optimizations
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.enabled   = True
+        
+        
         print(f"Using device: {device}")
         self.device = device
         self.model = model.to(self.device)
@@ -101,7 +106,7 @@ class BaseTrainer(ABC):
         self.training_history = []
     
     @abstractmethod
-    def _train_epoch(self, dataloader) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]:
+    def train_epoch(self, dataloader) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]:
         """Train for one epoch."""
         pass
 
@@ -110,15 +115,15 @@ class BaseTrainer(ABC):
         """Validate for one epoch."""
         pass
 
-    @abstractmethod
-    def train(self, train_dataloader, val_dataloader):
-        """Full training loop."""
-        pass
+    #@abstractmethod
+    #def train(self, train_dataloader, val_dataloader):
+    #    """Full training loop."""
+    #    pass
 
-    @abstractmethod
-    def evaluate(self, dataloader) -> Dict[str, float]:
-        """Evaluation loop."""
-        pass
+    #@abstractmethod
+    #def evaluate(self, dataloader) -> Dict[str, float]:
+    #    """Evaluation loop."""
+    #    pass
 
 
     def _init_experiment(self, run_name: str, config_file: str):
@@ -134,8 +139,8 @@ class BaseTrainer(ABC):
         with open(expt_root / "model_arch.txt", "w") as f:
            
             batch_size = self.config['data'].get('batch_size', 8)
-            max_len    = self.model.max_len
-            input_size = [(batch_size, max_len), (batch_size,)]
+            seq_len = self.config['data'].get('max_seq_len', 512)
+            input_size = [(batch_size, seq_len),]
             dtypes     = [torch.long, torch.long]
             # Generate the summary
             model_summary = summary(

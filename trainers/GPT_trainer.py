@@ -1,23 +1,24 @@
 
+from curses import raw
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 from typing import Dict, Tuple, Any, Optional, List
-from base_trainer import BaseTrainer
+from trainers.base_trainer import BaseTrainer
 
 #from ..utils import create_scheduler
 #from ..decoding.sequence_generator import SequenceGenerator
 
-class LMTrainer(BaseTrainer):
+class GPT_Trainer(BaseTrainer):
    
-    def __init__(self, model, pad_id, config, config_file, run_name, device=None):
+    def __init__(self, model, config, config_file, run_name, device=None):
        
         super().__init__(model, config, run_name, config_file, device)
        
-        self.criterion = nn.CrossEntropyLoss(ignore_index = pad_id, label_smoothing = config["loss"]["label_smoothing"])
+        self.criterion = nn.CrossEntropyLoss(label_smoothing = config["loss"]["label_smoothing"])
        
 
-    def _train_epoch(self, dataloader) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]:
+    def train_epoch(self, train_dataloader, val_dataloader) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]:
         """
         Train for one epoch.
         
@@ -27,45 +28,57 @@ class LMTrainer(BaseTrainer):
             Tuple[Dict[str, float], Dict[str, torch.Tensor]]: Training metrics and attention weights
         """
         
+        if self.scheduler is None:
+            raise ValueError("Scheduler is not initialized, initialize it first!")
+        
+        if self.optimizer is None:
+            raise ValueError("Optimizer is not initialized, initialize it first!")
+        if self.scaler is None:
+            raise ValueError("GradScaler is not initialized, initialize it first!")
+        
         # Initialize training variables
         self.model.train()
-        batch_bar = tqdm(total=len(dataloader), dynamic_ncols=True, leave=False, position=0, desc=f"[Training LM]")
+        batch_bar = tqdm(total=len(train_dataloader), dynamic_ncols=True, leave=False, position=0, desc=f"[Training LM]")
         running_ce_loss = 0.0
         total_tokens = 0
-
+        best_val_loss = float('inf')
 
         # Only zero gradients when starting a new accumulation cycle
         self.optimizer.zero_grad()
-
-        for i, batch in enumerate(dataloader):
         
-            targets_shifted, targets_golden, lengths = batch
+        log_interval = self.config['training']['log_interval']
+        gradient_accumulation_steps = self.config['training']['gradient_accumulation_steps']
+        val_interval = self.config['training']['val_interval']
         
-            targets_shifted, targets_golden, lengths = targets_shifted.to(self.device), targets_golden.to(self.device), lengths.to(self.device)
+        
+        for i, batch in enumerate(train_dataloader):
+        
+            targets_shifted, targets_golden = batch
+        
+            targets_shifted, targets_golden= targets_shifted.to(self.device), targets_golden.to(self.device)
 
             with torch.autocast(device_type=self.device, dtype=torch.float16):
-
-                raw_preds, attn_weights = self.model(targets_shifted, lengths) 
-
                 
+                raw_preds, attn_weights = self.model(targets_shifted) 
+
                 raw_preds = raw_preds.view(-1, raw_preds.size(-1))        # (batch_size * seq_len, vocab_size)
                 targets = targets_golden.view(-1)                         # (batch_size * seq_len)
 
                 raw_loss = self.criterion(raw_preds, targets)
                 
             # Calculate metrics with raw loss 
-            batch_tokens = lengths.sum().item()
+            batch_tokens = targets_shifted.size(0) * targets_shifted.size(1)
             total_tokens += batch_tokens
             running_ce_loss += raw_loss.item() * batch_tokens
 
             # Normalize loss for gradient accumulation
-            loss = raw_loss / self.config['training']['gradient_accumulation_steps']
+            loss = raw_loss / gradient_accumulation_steps
             
             # Backpropagate the loss
             self.scaler.scale(loss).backward()
         
             # Only update weights after accumulating enough gradients
-            if (i + 1) % self.config['training']['gradient_accumulation_steps'] == 0:
+            if (i + 1) % gradient_accumulation_steps == 0:
                 self.scaler.step(self.optimizer)
                 # Only step scheduler here if it's not ReduceLROnPlateau
                 if not isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
@@ -75,21 +88,60 @@ class LMTrainer(BaseTrainer):
                 self.optimizer.zero_grad()  # Reset gradients after update
 
             # Calculate metrics
-            avg_ce_loss = running_ce_loss / total_tokens
-            perplexity_token = torch.exp(torch.tensor(avg_ce_loss))
-            batch_bar.set_postfix(
-                ce_loss_token=f"{avg_ce_loss:.4f}",
-                perplexity_token=f"{perplexity_token:.4f}",
-                acc_step=f"{(i % self.config['training']['gradient_accumulation_steps']) + 1}/{self.config['training']['gradient_accumulation_steps']}"
-            )
-            batch_bar.update()
+            if i % log_interval == 0:
+                avg_ce_loss = running_ce_loss / total_tokens
+                perplexity_token = torch.exp(torch.tensor(avg_ce_loss))
+                batch_bar.set_postfix(
+                    ce_loss_token=f"{avg_ce_loss:.4f}",
+                    perplexity_token=f"{perplexity_token:.4f}",
+                    acc_step=f"{(i % gradient_accumulation_steps) + 1}/{gradient_accumulation_steps}"
+                )
+                batch_bar.update()
+              
+            if i % val_interval == 0:
+                
+                avg_ce_loss = running_ce_loss / total_tokens
+                avg_perplexity_token = torch.exp(torch.tensor(avg_ce_loss))
+                
+                val_metrics, val_attn = self._validate_epoch(val_dataloader)
+                
+                train_metrics = {
+                    'ce_loss_token': avg_ce_loss,
+                    'perplexity_token': avg_perplexity_token.item(),
+                }
+                
+                # Log metrics
+                metrics = {
+                    'train': train_metrics,
+                    'val': val_metrics
+                }
+                self._log_metrics(metrics, i)
+                
+                # Save attention plots
+                train_attn_keys = list(attn_weights.keys())
+                val_attn_keys = list(val_attn.keys())
+                
+                self._save_attention_plot(attn_weights[train_attn_keys[0]][0], 1, "train_self")
+                self._save_attention_plot(val_attn[val_attn_keys[0]][0], 1, "val_self")
+
+                self.save_checkpoint('checkpoint-last-epoch-model.pth')
+            
+                # Check if this is the best model
+                val_loss = val_metrics['ce_loss_token']
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    self.best_metric = val_loss
+                    self.save_checkpoint('checkpoint-best-metric-model.pth')
+
+                #set model back to training
+                self.model.train()
+             
 
             # Clean up
-            del targets_shifted, targets_golden, lengths, raw_preds, loss
-            torch.cuda.empty_cache()
+            del targets_shifted, targets_golden, raw_preds, loss
 
         # Handle any remaining gradients at the end of the epoch
-        if (len(dataloader) % self.config['training']['gradient_accumulation_steps']) != 0:
+        if (len(train_dataloader) % self.config['training']['gradient_accumulation_steps']) != 0:
             self.scaler.step(self.optimizer)
             # Only step scheduler here if it's not ReduceLROnPlateau
             if not isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
@@ -118,8 +170,6 @@ class LMTrainer(BaseTrainer):
         Returns:
             Tuple[Dict[str, float], Dict[str, torch.Tensor]]: Validation metrics and attention weights
         """
-
-        
         self.model.eval()
         batch_bar = tqdm(total=len(dataloader), dynamic_ncols=True, leave=False, position=0, desc=f"[Validating LM]")
         running_ce_loss = 0.0
@@ -128,8 +178,8 @@ class LMTrainer(BaseTrainer):
         for i, batch in enumerate(dataloader):
             
       
-            targets_shifted, targets_golden, lengths = batch
-            targets_shifted, targets_golden, lengths = targets_shifted.to(self.device), targets_golden.to(self.device), lengths.to(self.device)
+            targets_shifted, targets_golden = batch #shape (batch_size, seq_len)
+            targets_shifted, targets_golden = targets_shifted.to(self.device), targets_golden.to(self.device)
 
             # Forward pass
             with torch.inference_mode():
@@ -138,11 +188,10 @@ class LMTrainer(BaseTrainer):
 
                 raw_preds = raw_preds.view(-1, raw_preds.size(-1))        # (batch_size * seq_len, vocab_size)
                 targets = targets_golden.view(-1)                         # (batch_size * seq_len)
-
                 loss = self.criterion(raw_preds, targets)
 
             # Calculate metrics
-            batch_tokens = lengths.sum().item()
+            batch_tokens = targets_shifted.size(0) * targets_shifted.size(1)
             total_tokens += batch_tokens
             running_ce_loss += loss.item() * batch_tokens
 
@@ -156,8 +205,8 @@ class LMTrainer(BaseTrainer):
             batch_bar.update()
 
             # Clean up
-            del targets_shifted, targets_golden, lengths, raw_preds, loss
-            torch.cuda.empty_cache()
+            del targets_shifted, targets_golden, raw_preds, loss
+            
 
         # Compute final metrics
         avg_ce_loss = running_ce_loss / total_tokens
@@ -171,68 +220,7 @@ class LMTrainer(BaseTrainer):
         }, attn_weights
         
 
-    def train(self, train_dataloader, val_dataloader, epochs: int):
-        """
-        Full training loop for language model training.
-        
-        Args:
-            train_dataloader: DataLoader for training data
-            val_dataloader: DataLoader for validation data
-            epochs: int, number of epochs to train
-        """
-        if self.scheduler is None:
-            raise ValueError("Scheduler is not initialized, initialize it first!")
-        
-        if self.optimizer is None:
-            raise ValueError("Optimizer is not initialized, initialize it first!")
-        
-
-        # Training loop
-        best_val_loss = float('inf')
-
-        for epoch in range(self.current_epoch, self.current_epoch + epochs):
-            
-          
-            train_metrics, train_attn = self._train_epoch(train_dataloader)
-            
-            
-            val_metrics, val_attn = self._validate_epoch(val_dataloader)
-
-          
-            #gen_results = self.generate(val_dataloader)
-            
-            # Step ReduceLROnPlateau scheduler with validation loss
-            if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                self.scheduler.step(val_metrics['ce_loss_char'])
-
-            # Log metrics
-            metrics = {
-                'train': train_metrics,
-                'val': val_metrics
-            }
-            self._log_metrics(metrics, epoch)
-            
-            # Save attention plots
-            train_attn_keys = list(train_attn.keys())
-            val_attn_keys = list(val_attn.keys())
-            
-            self._save_attention_plot(train_attn[train_attn_keys[0]][0], epoch, "train_self")
-            self._save_attention_plot(val_attn[val_attn_keys[0]][0], epoch, "val_self")
-
-            # Save generated text
-            #self._save_generated_text(gen_results, f'val_epoch_{epoch}')
-
-            # Save checkpoints
-            self.save_checkpoint('checkpoint-last-epoch-model.pth')
-            
-            # Check if this is the best model
-            val_loss = val_metrics['ce_loss_char']
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                self.best_metric = val_loss
-                self.save_checkpoint('checkpoint-best-metric-model.pth')
-
-            self.current_epoch += 1
+    
 
     def generate(self, dataloader, generation_config: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
