@@ -2,10 +2,10 @@
 
 ###### Dataset -----------------------------------------------------------------
 data:                    
-  batch_size           : 256     #
+  batch_size           : 96     #
   seq_len             : 512      # Sequence length
   vocab_size         : 3    # Vocabulary size
-  NUM_WORKERS          : 12       # Set to 0 for CPU
+  NUM_WORKERS          : 5       # Set to 0 for CPU
   sos_token           : 0       # Sos token
   eos_token           : 4       # Eos token
 
@@ -14,31 +14,32 @@ data:
 model: # Decoder-Only Language Model 
   d_model                   : 768
   d_ff                      : 3072
-  num_layers                : 12
+  num_layers                : 6
   num_heads                 : 12
   dropout                   : 0.0
   layer_drop_rate           : 0.0
-  weight_tying              : False
+  weight_tying              : True
 
 ###### Common Training Parameters ------------------------------------------------
 training:
-  use_wandb                   : False   # Toggle wandb logging
+  use_wandb                   : True   # Toggle wandb logging
   wandb_run_id                : "none" # "none" or "run_id"
   resume                      : False  # Resume an existing run (run_id != 'none')
   epochs                      : 1
   gradient_accumulation_steps : 1
   wandb_project               : "Thesis" # wandb project to log to
   log_interval                : 1
-  val_interval                : 1
+  val_interval                : 100
+  val_batches                 : 30 
 
 ###### Loss ----------------------------------------------------------------------
 loss: # Just good ol' CrossEntropy
-  label_smoothing: 0.0
+  label_smoothing: 0.1
 
 ###### Optimizer -----------------------------------------------------------------
 optimizer:
   name: "adamw" # Options: sgd, adam, adamw
-  lr: 6.0e-4   # Base learning rate
+  lr: 7.0e-4   # Base learning rate
 
   # Common parameters
   weight_decay: 0.1
@@ -112,7 +113,7 @@ scheduler:
 
   # Warmup parameters (can be used with any scheduler)
   warmup:
-    enabled: True
+    enabled: False
     type: "exponential"  # Options: linear, exponential
     warmup_steps_fraction : 0.1  # Fraction of total steps for warmup
     start_factor: 0.1

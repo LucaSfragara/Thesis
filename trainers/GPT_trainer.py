@@ -5,10 +5,10 @@ import torch.nn as nn
 from tqdm import tqdm
 from typing import Dict, Tuple, Any, Optional, List
 from trainers.base_trainer import BaseTrainer
-
+from itertools import islice
 #from ..utils import create_scheduler
 #from ..decoding.sequence_generator import SequenceGenerator
-
+import wandb
 class GPT_Trainer(BaseTrainer):
    
     def __init__(self, model, config, config_file, run_name, device=None):
@@ -37,8 +37,9 @@ class GPT_Trainer(BaseTrainer):
             raise ValueError("GradScaler is not initialized, initialize it first!")
         
         # Initialize training variables
+        wandb.watch(self.model, log="all", log_graph=False)
         self.model.train()
-        batch_bar = tqdm(total=len(train_dataloader), dynamic_ncols=True, leave=False, position=0, desc=f"[Training LM]")
+        batch_bar = tqdm(total=len(train_dataloader), dynamic_ncols=True, leave=True, position=0, initial = self.current_batch, desc=f"[Training LM]")
         running_ce_loss = 0.0
         total_tokens = 0
         best_val_loss = float('inf')
@@ -51,10 +52,11 @@ class GPT_Trainer(BaseTrainer):
         val_interval = self.config['training']['val_interval']
         
         
-        for i, batch in enumerate(train_dataloader):
-        
+        for i, batch in enumerate(islice(train_dataloader, self.current_batch, None), start=self.current_batch):
+
+            
             targets_shifted, targets_golden = batch
-        
+            
             targets_shifted, targets_golden= targets_shifted.to(self.device), targets_golden.to(self.device)
 
             with torch.autocast(device_type=self.device, dtype=torch.float16):
@@ -67,6 +69,7 @@ class GPT_Trainer(BaseTrainer):
                 raw_loss = self.criterion(raw_preds, targets)
                 
             # Calculate metrics with raw loss 
+            
             batch_tokens = targets_shifted.size(0) * targets_shifted.size(1)
             total_tokens += batch_tokens
             running_ce_loss += raw_loss.item() * batch_tokens
@@ -76,7 +79,10 @@ class GPT_Trainer(BaseTrainer):
             
             # Backpropagate the loss
             self.scaler.scale(loss).backward()
-        
+
+            # Clip gradients to prevent exploding gradients
+            nn.utils.clip_grad_norm_(self.model.parameters(), 1)
+            
             # Only update weights after accumulating enough gradients
             if (i + 1) % gradient_accumulation_steps == 0:
                 self.scaler.step(self.optimizer)
@@ -87,18 +93,18 @@ class GPT_Trainer(BaseTrainer):
                 self.scaler.update()
                 self.optimizer.zero_grad()  # Reset gradients after update
 
-            # Calculate metrics
-            if i % log_interval == 0:
-                avg_ce_loss = running_ce_loss / total_tokens
-                perplexity_token = torch.exp(torch.tensor(avg_ce_loss))
-                batch_bar.set_postfix(
-                    ce_loss_token=f"{avg_ce_loss:.4f}",
-                    perplexity_token=f"{perplexity_token:.4f}",
-                    acc_step=f"{(i % gradient_accumulation_steps) + 1}/{gradient_accumulation_steps}"
-                )
-                batch_bar.update()
-              
-            if i % val_interval == 0:
+            
+            avg_ce_loss = running_ce_loss / total_tokens
+            perplexity_token = torch.exp(torch.tensor(avg_ce_loss))
+            batch_bar.set_postfix(
+                ce_loss_token=f"{avg_ce_loss:.4f}",
+                perplexity_token=f"{perplexity_token:.4f}",
+                lr = f"{self.scheduler.get_last_lr()[0]:.6f}",
+                acc_step=f"{(i % gradient_accumulation_steps) + 1}/{gradient_accumulation_steps}"
+            )
+            batch_bar.update()
+            
+            if i % val_interval == 0 and i  > 0:
                 
                 avg_ce_loss = running_ce_loss / total_tokens
                 avg_perplexity_token = torch.exp(torch.tensor(avg_ce_loss))
@@ -121,8 +127,8 @@ class GPT_Trainer(BaseTrainer):
                 train_attn_keys = list(attn_weights.keys())
                 val_attn_keys = list(val_attn.keys())
                 
-                self._save_attention_plot(attn_weights[train_attn_keys[0]][0], 1, "train_self")
-                self._save_attention_plot(val_attn[val_attn_keys[0]][0], 1, "val_self")
+                self._save_attention_plot(attn_weights[train_attn_keys[0]][0], self.current_batch, "train_self")
+                self._save_attention_plot(val_attn[val_attn_keys[0]][0], self.current_batch, "val_self")
 
                 self.save_checkpoint('checkpoint-last-epoch-model.pth')
             
@@ -136,7 +142,7 @@ class GPT_Trainer(BaseTrainer):
                 #set model back to training
                 self.model.train()
              
-
+            self.current_batch += 1
             # Clean up
             del targets_shifted, targets_golden, raw_preds, loss
 
@@ -171,7 +177,8 @@ class GPT_Trainer(BaseTrainer):
             Tuple[Dict[str, float], Dict[str, torch.Tensor]]: Validation metrics and attention weights
         """
         self.model.eval()
-        batch_bar = tqdm(total=len(dataloader), dynamic_ncols=True, leave=False, position=0, desc=f"[Validating LM]")
+        val_batches = self.config['training']['val_batches']
+        batch_bar = tqdm(val_batches, dynamic_ncols=True, leave=False, position=0, desc=f"[Validating LM]")
         running_ce_loss = 0.0
         total_tokens = 0
 
@@ -203,6 +210,9 @@ class GPT_Trainer(BaseTrainer):
                 perplexity_token=f"{perplexity_token:.4f}",
             )
             batch_bar.update()
+            
+            if i > val_batches:
+                break
 
             # Clean up
             del targets_shifted, targets_golden, raw_preds, loss

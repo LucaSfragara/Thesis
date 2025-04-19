@@ -101,7 +101,7 @@ class BaseTrainer(ABC):
         self.best_model_path, self.last_model_path = self._init_experiment(run_name, config_file)
 
         # Training state
-        self.current_epoch = 0
+        self.current_batch = 0
         self.best_metric = float('inf')
         self.training_history = []
     
@@ -135,7 +135,7 @@ class BaseTrainer(ABC):
         # Copy config
         shutil.copy2(config_file, expt_root / "config.yaml")
 
-        # Save model architecture with torchinfo summary
+        """# Save model architecture with torchinfo summary
         with open(expt_root / "model_arch.txt", "w") as f:
            
             batch_size = self.config['data'].get('batch_size', 8)
@@ -150,7 +150,7 @@ class BaseTrainer(ABC):
             )
             # Write the summary string to file
             f.write(str(model_summary))
-        
+        """
         # Create subdirectories
         checkpoint_dir = expt_root / 'checkpoints'
         attn_dir = expt_root / 'attn'
@@ -168,6 +168,7 @@ class BaseTrainer(ABC):
         if self.use_wandb:
             """Initialize Weights & Biases logging."""
             run_id = self.config['training'].get('wandb_run_id', None)
+            
             if run_id and run_id.lower() != "none":
                 self.wandb_run = wandb.init(
                     project=self.config['training'].get('wandb_project', 'default-project'),
@@ -181,7 +182,7 @@ class BaseTrainer(ABC):
                     config=self.config,
                     name=run_name
                 )
-
+           
         return expt_root, checkpoint_dir, attn_dir, text_dir, best_model_path, last_model_path
 
     def _log_metrics(self, metrics: Dict[str, Dict[str, float]], step: int):
@@ -199,6 +200,7 @@ class BaseTrainer(ABC):
                 for metric_name, value in split_metrics.items():
                     wandb_metrics[f'{split}/{metric_name}'] = value
             wandb_metrics['learning_rate'] = self.optimizer.param_groups[0]['lr']
+            print("wandb metrics being logged: ",  wandb_metrics)
             wandb.log(wandb_metrics, step=step)
         
         # Print metrics with tree structure
@@ -260,7 +262,7 @@ class BaseTrainer(ABC):
         """Save a checkpoint of the model and training state."""
         checkpoint_path = self.checkpoint_dir / filename
         checkpoint = {
-            'epoch': self.current_epoch,
+            'batch': self.current_batch,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
@@ -328,7 +330,7 @@ class BaseTrainer(ABC):
 
         # Try loading training state
         try:
-            self.current_epoch = checkpoint['epoch']
+            self.current_batch = checkpoint['batch'] if checkpoint.get('batch') else 2001
             self.best_metric = checkpoint['best_metric']
             self.training_history = checkpoint['training_history']
             load_status['training_state'] = True
@@ -343,7 +345,7 @@ class BaseTrainer(ABC):
         if not successful_loads:
             raise RuntimeError("Failed to load any checkpoint components")
         
-        print(f"Checkpoint loaded from epoch {checkpoint.get('epoch', 'unknown')}")
+        print(f"Checkpoint loaded from batch {checkpoint.get('batch', 'unknown')}")
         print(f"Successfully loaded: {', '.join(successful_loads)}")
         if failed_loads:
             print(f"Failed to load: {', '.join(failed_loads)}")

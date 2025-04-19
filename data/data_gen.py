@@ -54,8 +54,9 @@ def gen_sentence(_):
 
 if __name__ == "__main__":
 
-    length = 100  # number of sentences to generate
-    n_procs = 1#min(cpu_count(), 1)    # or whatever cap you want
+    length = 8_000_000  # number of sentences to generate
+    n_procs = min(cpu_count(), 12)    # or whatever cap you want
+    print("Generating sentences with", n_procs, "processes")
     with Pool(n_procs) as pool:
         # imap is lazy; tqdm will show progress
         data = list(tqdm(pool.imap(gen_sentence, range(length)),
