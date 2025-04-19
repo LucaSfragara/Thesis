@@ -2,8 +2,8 @@
 
 ###### Dataset -----------------------------------------------------------------
 data:                    
-  subset               : 0.1      # Load a subset of the data (for debugging, testing, etc
-  batch_size           : 512     #
+  subset               : .1     # Load a subset of the data (for debugging, testing, etc
+  batch_size           : 256     #
   seq_len             : 512      # Sequence length
   vocab_size         : 3    # Vocabulary size
   NUM_WORKERS          : 12       # Set to 0 for CPU
@@ -13,10 +13,10 @@ data:
 
 ###### Network Specs -------------------------------------------------------------
 model: # Decoder-Only Language Model 
-  d_model                   : 10
-  d_ff                      : 10
-  num_layers                : 1
-  num_heads                 : 10
+  d_model                   : 768
+  d_ff                      : 3072
+  num_layers                : 12
+  num_heads                 : 12
   dropout                   : 0.0
   layer_drop_rate           : 0.0
   weight_tying              : False
@@ -39,7 +39,7 @@ loss: # Just good ol' CrossEntropy
 ###### Optimizer -----------------------------------------------------------------
 optimizer:
   name: "adamw" # Options: sgd, adam, adamw
-  lr: 7.0e-4   # Base learning rate
+  lr: 6.0e-4   # Base learning rate
 
   # Common parameters
   weight_decay: 0.1

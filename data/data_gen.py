@@ -9,7 +9,7 @@ import random
 from multiprocessing import Pool, cpu_count
 
 
-terminals_to_idx = {'a':1, 'b':2, 'c':3}
+terminals_to_idx = {'a':1, 'b':2, 'c':3, "sos":0, "eos":4}
 data = []
 
 def random_derivation(grammar, symbol=None):
@@ -48,24 +48,32 @@ def random_derivation(grammar, symbol=None):
 def gen_sentence(_):
     # generate one sentence, convert to idx array
     sent = random_derivation(GRAMMAR_CFG3b)
+    sent.append("eos")  # add EOS token
+    sent.insert(0, "sos")  # add SOS token
     return np.array([terminals_to_idx[t] for t in sent], dtype=np.uint8)
 
 if __name__ == "__main__":
 
-    length = 8_000_000  # number of sentences to generate
-    n_procs = min(cpu_count(), 8)    # or whatever cap you want
+    length = 100  # number of sentences to generate
+    n_procs = 1#min(cpu_count(), 1)    # or whatever cap you want
     with Pool(n_procs) as pool:
         # imap is lazy; tqdm will show progress
         data = list(tqdm(pool.imap(gen_sentence, range(length)),
                          total=length,
                          desc="Generating CFG sentences"))
-    # split train/val
-    split = int(0.9 * length)
     
-    with open("cfg_sentences_train_cfg3b.pkl", "wb") as f:
-        pickle.dump(data[:split], f, protocol=4)
-    with open("cfg_sentences_val_cfg3b.pkl", "wb") as f:
-        pickle.dump(data[split:], f, protocol=4)
-        
     print("Lenghts Quartiles: ")
     print(np.percentile([len(d) for d in data], [25, 50, 75]))
+    # split train/val
+    flat = np.concatenate(data, axis=0)
+    print("total tokens", flat.shape[0])
+    split = int(0.9 * len(flat))
+    #save to text for debugging
+    #with open("cfg_sentences_train_cfg3b.txt", "w") as f:
+    #        f.write("".join(flat.astype(str)))
+        
+    np.save("cfg_sentences_train_cfg3b.npy", flat[:split])
+    np.save("cfg_sentences_val_cfg3b.npy", flat[split:])
+    print(f"Wrote {flat.nbytes/1e9:.2f} GB of both train and val")
+    
+    

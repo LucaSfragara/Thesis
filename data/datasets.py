@@ -1,6 +1,4 @@
 
-from random import seed
-from wsgiref.util import setup_testing_defaults
 from torch.utils.data import Dataset, IterableDataset
 from torch.utils.data import DataLoader, get_worker_info
 import torch
@@ -19,7 +17,6 @@ class CFGDataset(IterableDataset):
     
     def __init__(self, 
                  data_file:str, 
-                 subset:int,
                  batch_size:int, 
                  seq_len:int, 
                  sos_token:int, 
@@ -28,39 +25,30 @@ class CFGDataset(IterableDataset):
         if sos_token in [1,2,3] or eos_token in [1,2,3] or sos_token == eos_token:
             raise ValueError("sos_token and eos_token cannot be a part of the vocabulary or be the same")
           
-        with open(data_file, 'rb') as f:
-            data = pickle.load(f)  # loads list of sequences
-        
-        self.subset = subset
-        length = int(len(data) * subset)
-        data = data[:length] # Subset the data
+        self.flattened_sequences = np.load(data_file, mmap_mode="r")
+
         
         #ADD SOS and EOS tokens to each sequence
         self.eos_token = eos_token
         self.sos_token = sos_token
-        print(data[1000])
-        # Add SOS and EOS tokens to each sequence
-        data = [np.concatenate(
-                    (np.array([sos_token]), seq, np.array([eos_token]))
-            , axis = 0) for seq in data]        
+        
+    
+        #print("len data",  len(sequences))
+        assert len(self.flattened_sequences) > 0, "No sequences in the dataset"
+        #assert data[0][0] == sos_token, "SOS token not added to first element"
+        #assert data[0][-1] == eos_token, "EOS token not added to last element"
+        
+    
+        #print(flattened_seq_tensor.shape)
+        self.total_tokens = len(self.flattened_sequences)
+        
+        self.n_batches = self.total_tokens // (batch_size * seq_len) # drop extra so divisible by (batch size*seq_len)
 
-        print("len data",  len(data))
-        print(data[1000])
-        flattened_seq= np.concatenate(data, axis = 0)
-        
-        flattened_seq_tensor = torch.from_numpy(flattened_seq).long()
-        print(flattened_seq_tensor.shape)
-        self.total_tokens = flattened_seq_tensor.numel() # total number of tokens in the dataset
-        
-        self.n_batches = flattened_seq_tensor.numel() // (batch_size * seq_len) # drop extra so divisible by (batch size*seq_len)
+        self.flattened_sequences = self.flattened_sequences[:self.n_batches * batch_size * seq_len]        
 
-        flattened_seq_tensor = flattened_seq_tensor[:self.n_batches * batch_size * seq_len]        
-        
-        self.sequences = flattened_seq_tensor.view(batch_size, -1) # (batch_size, n_batches * seq_len)
+        self.flattened_sequences = self.flattened_sequences.reshape(batch_size, -1) # (batch_size, n_batches * seq_len)
         self.seq_len = seq_len
 
-        #check sequence len is non 0
-        assert data[0].shape[0] > 0, "Sequence length is 0"
         
     def __len__(self):
         
@@ -74,7 +62,7 @@ class CFGDataset(IterableDataset):
         worker_info = get_worker_info()
         total_batches = self.n_batches
         L = self.seq_len
-        seqs = self.sequences  # shape [batch_size, total_batches * L]
+        seqs = self.flattened_sequences  # shape [batch_size, total_batches * L]
 
         if worker_info is None:
             # single‐process: cover the whole range
@@ -94,12 +82,12 @@ class CFGDataset(IterableDataset):
                 end_batch   = start_batch + per_worker
 
         # now each worker only walks its own [start_batch, end_batch) slice
-        max_batch = (seqs.size(1) - (L + 1)) // L
+        max_batch = (seqs.shape[1] - (L + 1)) // L
 
         for b in range(start_batch, min(end_batch, max_batch+1)):
             i = b * L
-            x = seqs[:, i : i + L]           # shape [batch_size, seq_len]
-            y = seqs[:, i + 1 : i + 1 + L]   # shifted targets
+            x = torch.from_numpy(seqs[:, i : i + L].copy()).long()         # shape [batch_size, seq_len]
+            y = torch.from_numpy(seqs[:, i + 1 : i + 1 + L].copy()).long()  # shifted targets
             yield x, y
         
     def __getitem__(self, index):
@@ -116,22 +104,30 @@ def verify_dataloader(dataloader: DataLoader):
     print("Verifying dataloader...")
     #print("Example sequence: ", dataloader.dataset[0])
     #print("Example batch: ", next(iter(dataloader)))
-    print("data subset: ", dataloader.dataset.subset)
     print("Number of batches: ", len(dataloader))
-    print(f"Total number of tokens: { dataloader.dataset.total_tokens: 2e}") #in scientific notation
+    print(f"Total number of tokens: { dataloader.dataset.total_tokens: 6e}") #in scientific notation
     print("Example batch shapes (shifted, golden): ", 
           next(iter(dataloader))[0].shape, 
           next(iter(dataloader))[1].shape)
     
 if __name__ == "__main__":
     # Example usage
-    data_file = "/ocean/projects/cis250019p/sfragara/lstm/cfg_sentences_train_cfg3b.pkl"
-    subset = 1
-    batch_size = 512
-    seq_len = 512
+    data_file = "/ocean/projects/cis250019p/sfragara/lstm/cfg_sentences_train_cfg3b.npy"
+
+    batch_size = 1
+    seq_len = 200
     sos_token = 0
     eos_token = 4
     
-    dataset = CFGDataset(data_file, subset, batch_size, seq_len, sos_token, eos_token)
+    dataset = CFGDataset(data_file, batch_size, seq_len, sos_token, eos_token)
     dataloader = DataLoader(dataset, batch_size=None, num_workers=12)
+    
+    #save all the batches to a txt file to check if they are correct
+    with open("cfg_sentences_train_cfg3b.txt", "w") as f:
+        for x, y in dataloader:
+            f.write("".join(x[0].numpy().astype(str)))
+            f.write("\n")
+            f.write("".join(y[0].numpy().astype(str)))
+            f.write("\n")
+    
     verify_dataloader(dataloader)
