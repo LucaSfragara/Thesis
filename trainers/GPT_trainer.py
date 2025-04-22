@@ -1,14 +1,17 @@
 
 from curses import raw
+from logging import config
+from multiprocessing import process
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 from typing import Dict, Tuple, Any, Optional, List
 from trainers.base_trainer import BaseTrainer
 from itertools import islice
+from trainers.sequence_generator import SequenceGenerator
 #from ..utils import create_scheduler
 #from ..decoding.sequence_generator import SequenceGenerator
-import wandb
+import numpy as np
 class GPT_Trainer(BaseTrainer):
    
     def __init__(self, model, config, config_file, run_name, device=None):
@@ -37,7 +40,6 @@ class GPT_Trainer(BaseTrainer):
             raise ValueError("GradScaler is not initialized, initialize it first!")
         
         # Initialize training variables
-        wandb.watch(self.model, log="all", log_graph=False)
         self.model.train()
         batch_bar = tqdm(total=len(train_dataloader), dynamic_ncols=True, leave=True, position=0, initial = self.current_batch, desc=f"[Training LM]")
         running_ce_loss = 0.0
@@ -211,6 +213,7 @@ class GPT_Trainer(BaseTrainer):
             )
             batch_bar.update()
             
+        
             if i > val_batches:
                 break
 
@@ -223,15 +226,18 @@ class GPT_Trainer(BaseTrainer):
         
         avg_perplexity_token = torch.exp(torch.tensor(avg_ce_loss))
         batch_bar.close()
+        print("generating")
+        generation_result = self.generate(dataloader)
+        
+   
+        self._save_generated_text(generation_result, f"val_{self.current_batch}")
 
         return {
             'ce_loss_token': avg_ce_loss,
             'perplexity_token': avg_perplexity_token.item(),
         }, attn_weights
         
-
-    
-
+        
     def generate(self, dataloader, generation_config: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         Evaluate the model by generating sequences from prompts.
@@ -251,8 +257,82 @@ class GPT_Trainer(BaseTrainer):
         Returns:
             Dict containing generation results with prompts, originals, and generated sequences
         """
-        #TODO: Implement the generation logic, i.e. multinomial sampling
-        pass
+        if generation_config is None:
+            print("Using default generation config...")
+            # Greedy search (default)
+            generation_config = {
+                'num_samples': 5,
+                'prompt_length': 1,
+                'seed': 11785,
+                #'max_length': self.model.max_len,
+                'temperature': 1.0,
+                'beam_width': 1,
+                'repeat_penalty': 1.0,
+                'top_k': 0,
+                'top_p': 0.0    
+            }
+
+        # Create sequence generator
+        generator = SequenceGenerator(
+            score_fn=lambda x: self.model.score(x),
+            max_length=320,
+            device=self.device,
+            config = self.config
+        )
+
+        # Sample prompts and get original sequences
+        prompts, originals = dataloader.dataset.sample_prompts(
+            num_prompts=generation_config.get('num_samples', 1),
+            prompt_len=generation_config.get('prompt_length', 1),
+            seed=generation_config.get('seed', 11785)
+        )
+        prompts = prompts.to(self.device)
+
+        # Generate sequences based on method
+        self.model.eval()
+      
+        with torch.inference_mode():
+            if generation_config.get('top_k', 0) > 0 or generation_config.get('top_p', 0) > 0:
+                print("Generating with sampling...")
+                seqs, scores = NotImplementedError, NotImplementedError
+                raise NotImplementedError # Remove if you implemented the sampling method
+            elif generation_config.get('beam_width', 1) > 1:
+                print("Generating with beam search...")
+                seqs, scores = NotImplementedError, NotImplementedError
+                raise NotImplementedError # Remove if you implemented the beam search method
+                # Take best beam and score
+                seqs = seqs[:, 0]
+                scores = scores[:, 0]
+            else:
+                # TODO: Use the prompts and the generate_greedy method you implemented in the SequenceGenerator class to generate sequences
+                print("Generating with greedy search...")
+                seqs, scores = generator.generate_greedy(
+                    prompts,     
+                    generation_config.get("temperature"),
+                    generation_config.get("repeat_penalty")
+                )
+
+        # Post-process sequences (trim upto EOS token)
+        #processed_seqs = generator.post_process_sequence(seqs, self.tokenizer)
+
+        # Compile results
+        # results is a dictionary with the following keys:
+        # - prompt: the decoded prompt
+        # - generated: the decoded generated sequence after the prompt
+        # - original: the decoded original sequence after the prompt
+        # - score: the score of the generated sequence
+        processed_seqs = generator.post_process_sequence(seqs, self.config["data"]["eos_token"])
+        results = []
+        for _, (prompt, seq, score, original) in enumerate(zip(prompts, processed_seqs, scores, originals)):
+         
+            results.append({
+                'prompt': "".join(np.array(prompt.to('cpu')).astype(str)),
+                'original': "".join(np.array(original[len(prompt):].to('cpu')).astype(str)),
+                'generated': "".join(np.array(seq[len(prompt):].to('cpu')).astype(str)),
+                'score': score.item()
+            })
+
+        return results
 
     def _get_evaluation_generation_configs(self) -> Dict[str, Dict[str, Any]]:
         """

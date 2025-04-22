@@ -117,8 +117,31 @@ class DecoderOnlyTransformer(nn.Module):
         if self.training:
             raise ValueError("score method is not supported during training, use forward method instead")
         # Forward pass with no target lengths
-        seq_out, _ = self.forward(batch_prompts, target_lengths=None)
+        seq_out, _ = self.forward(batch_prompts)
         # Return the last token's logits for next token prediction    
         logits     = seq_out[:, -1, :]
         return logits
     
+
+#test score function with dummy model
+if __name__ == "__main__":
+    # Dummy model
+    model = DecoderOnlyTransformer(
+        num_layers=6,
+        d_model=512,
+        num_heads=8,
+        d_ff=2048,
+        dropout=0.1,
+        seq_len=512,
+        num_classes=5,
+        weight_tying=False,
+        layer_drop_rate=0.1
+    )
+    
+    # Dummy input
+    batch_prompts = torch.randint(0,4, (1, 12))
+    print(batch_prompts.shape)  # Should be (1, 128)
+    model.eval()  # Set model to evaluation mode
+    # Test score function
+    logits = model.score(batch_prompts)
+    print(logits.shape)  # Should be (1, 100)

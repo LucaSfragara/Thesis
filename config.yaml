@@ -22,7 +22,7 @@ model: # Decoder-Only Language Model
 
 ###### Common Training Parameters ------------------------------------------------
 training:
-  use_wandb                   : True   # Toggle wandb logging
+  use_wandb                   : False   # Toggle wandb logging
   wandb_run_id                : "none" # "none" or "run_id"
   resume                      : False  # Resume an existing run (run_id != 'none')
   epochs                      : 1

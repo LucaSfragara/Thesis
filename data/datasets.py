@@ -27,12 +27,10 @@ class CFGDataset(IterableDataset):
           
         self.flattened_sequences = np.load(data_file, mmap_mode="r")
 
-        
         #ADD SOS and EOS tokens to each sequence
         self.eos_token = eos_token
         self.sos_token = sos_token
         
-    
         #print("len data",  len(sequences))
         assert len(self.flattened_sequences) > 0, "No sequences in the dataset"
         #assert data[0][0] == sos_token, "SOS token not added to first element"
@@ -92,6 +90,57 @@ class CFGDataset(IterableDataset):
         
     def __getitem__(self, index):
         return self.sequences[index]
+    
+    def sample_prompts(self, num_prompts:int, prompt_len:int, seed:int):
+        """
+        Sample a batch of prompts from the dataset.
+        Args:
+            num_prompts (int): The number of prompts to sample.
+            prompt_len (int): The length of each prompt.
+        Returns:
+            torch.Tensor: A tensor of shape (num_prompts, prompt_len) containing the sampled prompts.
+            torch.Tensor: A tensor of shape (num_prompts, seq_len) containing the continuation
+        """
+        # Sample random indices
+        np.random.seed(seed)
+        #indices = np.random.randint(0, self.n_batches, size=num_prompts)
+        
+        # Get the prompts
+        #split every time you encounter a eos token
+        
+        full_sentences = []
+        i= 0
+        while len(full_sentences) < num_prompts:
+            
+            full_sentences.extend(np.split(self.flattened_sequences[1+i], np.where(self.flattened_sequences[1+i]==0)[0]))
+            i +=1
+        
+        full_sentences = full_sentences[:num_prompts]
+        if full_sentences[0][0] != self.sos_token:
+            
+            full_sentences[0] = np.insert(full_sentences[0], 0, self.sos_token)
+            
+         
+        for i in range(len(full_sentences)):
+            assert full_sentences[i][-1] == self.eos_token, "EOS token not added to last element"
+
+        full_sentences_padded = pad_sequence([torch.from_numpy(x.copy()) for x in full_sentences], batch_first=True, padding_value=5)
+        
+        prompts = full_sentences_padded[:, :prompt_len]
+        originals = full_sentences_padded
+        
+        #check each prompt starts with sos_token
+        assert (prompts[:, 0] == self.sos_token).all(), "SOS token not added to first element"
+        
+        #check each originals starts with sos_token
+        assert (originals[:, 0] == self.sos_token).all(), "SOS token not added to first element"
+        #check each original ends with eos_token
+        #print(np.where(originals == 0))
+        
+        
+        return prompts.long(), originals.long()
+    
+    
  
 
 def verify_dataloader(dataloader: DataLoader):

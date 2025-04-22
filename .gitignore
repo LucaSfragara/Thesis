@@ -11,4 +11,5 @@ env/
 *.pkl
 expts/
 wandb/
-.npy
+*.npy
+*.pth

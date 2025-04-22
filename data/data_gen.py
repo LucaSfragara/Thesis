@@ -3,7 +3,7 @@ from nltk import CFG
 from nltk.parse.generate import generate
 from tqdm import tqdm
 import pickle
-from grammars import GRAMMAR_CFG3b 
+from grammars import GRAMMAR_SIMPLE#GRAMMAR_CFG3b
 import numpy as np
 import random
 from multiprocessing import Pool, cpu_count
@@ -47,14 +47,14 @@ def random_derivation(grammar, symbol=None):
     
 def gen_sentence(_):
     # generate one sentence, convert to idx array
-    sent = random_derivation(GRAMMAR_CFG3b)
+    sent = random_derivation(GRAMMAR_SIMPLE)
     sent.append("eos")  # add EOS token
     sent.insert(0, "sos")  # add SOS token
     return np.array([terminals_to_idx[t] for t in sent], dtype=np.uint8)
 
 if __name__ == "__main__":
 
-    length = 8_000_000  # number of sentences to generate
+    length = 800_000  # number of sentences to generate
     n_procs = min(cpu_count(), 12)    # or whatever cap you want
     print("Generating sentences with", n_procs, "processes")
     with Pool(n_procs) as pool:
@@ -71,10 +71,12 @@ if __name__ == "__main__":
     split = int(0.9 * len(flat))
     #save to text for debugging
     #with open("cfg_sentences_train_cfg3b.txt", "w") as f:
-    #        f.write("".join(flat.astype(str)))
-        
-    np.save("cfg_sentences_train_cfg3b.npy", flat[:split])
-    np.save("cfg_sentences_val_cfg3b.npy", flat[split:])
+    #     
+    #f.write("".join(flat.astype(str)))
+    print("Fist 200 tokens")
+    print(flat[:200])
+    np.save("cfg_sentences_train_cfg_simple.npy", flat[:split])
+    np.save("cfg_sentences_val_cfg_simple.npy", flat[split:])
     print(f"Wrote {flat.nbytes/1e9:.2f} GB of both train and val")
     
     

@@ -16,7 +16,7 @@ class CFGParser:
         Returns True if the sentence is in the language defined by the CFG.
         """
         tokens = list(sentence)
-        tokens_to_words = { 0: "a", 1: "b", 2: "c" }
+        tokens_to_words = { 1: "a", 2: "b", 3: "c" }
         tokens = [tokens_to_words[int(token)] for token in tokens]
         try:
             trees = list(self.parser.parse(tokens))
