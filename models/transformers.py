@@ -2,9 +2,10 @@ import torch
 import torch.nn as nn
 import random
 from typing import Tuple, Optional
-from models.layers.positional_embedding import PositionalEncoding
+#from models.layers.positional_embedding import PositionalEncoding
 from models.masks import PadMask, CausalMask
 from models.layers.decoder_layers import SelfAttentionDecoderLayer
+
 
 class DecoderOnlyTransformer(nn.Module):
     '''
@@ -54,7 +55,8 @@ class DecoderOnlyTransformer(nn.Module):
 
         # TODO: Create target embedding and other layers
         self.target_embedding       = nn.Embedding(num_classes, d_model)
-        self.positional_encoding    = PositionalEncoding(d_model, seq_len) # Positional encoding
+        
+        #self.positional_encoding    = PositionalEncoding(d_model, seq_len) # Positional encoding
         self.final_linear           = nn.Linear(d_model, num_classes) # Final linear layer
         self.dropout                = nn.Dropout(dropout) # Dropout
         self.norm                   = nn.LayerNorm(d_model) # Layer norm
@@ -77,7 +79,7 @@ class DecoderOnlyTransformer(nn.Module):
     
         x = self.target_embedding(padded_targets)
 
-        x = self.positional_encoding(x)
+        #x = self.positional_encoding(x)
   
   
         x = self.dropout(x)

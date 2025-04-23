@@ -212,7 +212,6 @@ class GPT_Trainer(BaseTrainer):
                 perplexity_token=f"{perplexity_token:.4f}",
             )
             batch_bar.update()
-            
         
             if i > val_batches:
                 break
@@ -262,7 +261,7 @@ class GPT_Trainer(BaseTrainer):
             # Greedy search (default)
             generation_config = {
                 'num_samples': 5,
-                'prompt_length': 1,
+                'prompt_length': 20,
                 'seed': 11785,
                 #'max_length': self.model.max_len,
                 'temperature': 1.0,

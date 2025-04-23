@@ -54,8 +54,8 @@ def gen_sentence(_):
 
 if __name__ == "__main__":
 
-    length = 800_000  # number of sentences to generate
-    n_procs = min(cpu_count(), 12)    # or whatever cap you want
+    length = 8_000_000  # number of sentences to generate
+    n_procs = min(cpu_count(), 64)    # or whatever cap you want
     print("Generating sentences with", n_procs, "processes")
     with Pool(n_procs) as pool:
         # imap is lazy; tqdm will show progress
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     # split train/val
     flat = np.concatenate(data, axis=0)
     print("total tokens", flat.shape[0])
-    split = int(0.9 * len(flat))
+    split = int(0.99 * len(flat))
     #save to text for debugging
     #with open("cfg_sentences_train_cfg3b.txt", "w") as f:
     #     

@@ -28,20 +28,18 @@ class SelfAttentionDecoderLayer(nn.Module):
         self.ffn = FeedForwardLayer(d_model, d_ff, dropout) # Feed-forward network
         
 
-    def forward(self, x: torch.Tensor, key_padding_mask: Optional[torch.Tensor] = None, attn_mask: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         '''
         Forward pass for the DecoderLayer1.
         Args:
             x (torch.Tensor): The input tensor. shape: (batch_size, seq_len, d_model)   
-            key_padding_mask (torch.Tensor): The padding mask for the decoder. shape: (batch_size, seq_len)
-            attn_mask (torch.Tensor): The self-attention mask. shape: (seq_len, seq_len)
-
+            
         Returns:
             x (torch.Tensor): The output tensor. shape: (batch_size, seq_len, num_classes)
             mha_attn_weights (torch.Tensor): The attention weights. shape: (batch_size, seq_len, seq_len)   
         '''
         # TODO: Implement forward: Follow the figure in the writeup
-
+        
         x, mha_attn_weights = self.self_attn.forward(x)
         x = self.ffn(x)
         
