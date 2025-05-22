@@ -2,8 +2,8 @@
 
 ###### Dataset -----------------------------------------------------------------
 data:                    
-  batch_size           : 96     #
-  seq_len             : 512      # Sequence length
+  batch_size           : 128     #
+  seq_len             : 326      # Sequence length
   vocab_size         : 3    # Vocabulary size
   NUM_WORKERS          : 12       # Set to 0 for CPU
   sos_token           : 0       # Sos token

@@ -83,7 +83,7 @@ class GPT_Trainer(BaseTrainer):
             self.scaler.scale(loss).backward()
 
             # Clip gradients to prevent exploding gradients
-            nn.utils.clip_grad_norm_(self.model.parameters(), 1)
+            nn.utils.clip_grad_norm_(self.model.parameters(), 2)
             
             # Only update weights after accumulating enough gradients
             if (i + 1) % gradient_accumulation_steps == 0:
@@ -132,6 +132,12 @@ class GPT_Trainer(BaseTrainer):
                 self._save_attention_plot(attn_weights[train_attn_keys[0]][0], self.current_batch, "train_self")
                 self._save_attention_plot(val_attn[val_attn_keys[0]][0], self.current_batch, "val_self")
 
+
+                self._save_attention_plot(attn_weights[train_attn_keys[1]][0], self.current_batch, "train_self_layer2")
+                self._save_attention_plot(val_attn[val_attn_keys[1]][0], self.current_batch, "val_self_layer2")
+
+                
+                
                 self.save_checkpoint('checkpoint-last-epoch-model.pth')
             
                 # Check if this is the best model
@@ -274,7 +280,7 @@ class GPT_Trainer(BaseTrainer):
         # Create sequence generator
         generator = SequenceGenerator(
             score_fn=lambda x: self.model.score(x),
-            max_length=320,
+            max_length=326,
             device=self.device,
             config = self.config
         )

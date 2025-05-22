@@ -236,7 +236,7 @@ class BaseTrainer(ABC):
         
         plt.figure(figsize=(10, 8))
         sns.heatmap(attn_weights, cmap="viridis", cbar=True)
-        plt.title(f"Attention Weights - Epoch {epoch}")
+        plt.title(f"Attention Weights - Step {epoch}")
         plt.xlabel("Source Sequence")
         plt.ylabel("Target Sequence")
         

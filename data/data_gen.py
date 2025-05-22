@@ -3,7 +3,7 @@ from nltk import CFG
 from nltk.parse.generate import generate
 from tqdm import tqdm
 import pickle
-from grammars import GRAMMAR_SIMPLE#GRAMMAR_CFG3b
+from grammars import GRAMMAR_CFG3b
 import numpy as np
 import random
 from multiprocessing import Pool, cpu_count
@@ -47,7 +47,7 @@ def random_derivation(grammar, symbol=None):
     
 def gen_sentence(_):
     # generate one sentence, convert to idx array
-    sent = random_derivation(GRAMMAR_SIMPLE)
+    sent = random_derivation(GRAMMAR_CFG3b)
     sent.append("eos")  # add EOS token
     sent.insert(0, "sos")  # add SOS token
     return np.array([terminals_to_idx[t] for t in sent], dtype=np.uint8)
@@ -65,19 +65,18 @@ if __name__ == "__main__":
     
     print("Lenghts Quartiles: ")
     print(np.percentile([len(d) for d in data], [25, 50, 75]))
-    # split train/val
-    flat = np.concatenate(data, axis=0)
-    print("total tokens", flat.shape[0])
-    split = int(0.99 * len(flat))
-    #save to text for debugging
-    print("Fist 200 tokens")
-    print(flat[:200])
-    np.save("cfg_sentences_train_cfg_simple.npy", flat[:split])
-    np.save("cfg_sentences_val_cfg_simple.npy", flat[split:])
-    print(f"Wrote {flat.nbytes/1e9:.2f} GB of both train and val")
     
-    with open("cfg_sentences_train_simple.txt", "w") as f:
-        f.write("".join(flat.astype(str)))
+    data_arr = np.array(data, dtype=np.uint8)
+    split = int(0.999 * len(data_arr))
+    
+    np.save("cfg_sentences_train_cfg3b_samelen.npy", data_arr[:split, :])
+    np.save("cfg_sentences_val_cfg3b_samelen.npy", data_arr[split:, :])
+    
+    print(f"Wrote {data_arr.nbytes/1e9:.2f} GB of both train and val")
+    
+    with open("cfg_sentences_train_cfg3b_samelen.txt", "w") as f:
+        for l in data[:10]:
+            f.write("".join(l.astype(str)) + "\n")
   
     
     
