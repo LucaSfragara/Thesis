@@ -61,7 +61,14 @@ class CFGDataset(IterableDataset):
         total_batches = self.n_batches
         L = self.seq_len
         seqs = self.flattened_sequences  # shape [batch_size, total_batches * L]
+        
+        offset = torch.randint(0, L, ()).item()
+        
+        total_batches = (self.total_tokens - (L + 1) - offset) // L + 1
+        if total_batches <= 0:
+            return  # nothing to yield
 
+        
         if worker_info is None:
             # single‐process: cover the whole range
             start_batch, end_batch = 0, total_batches
@@ -110,12 +117,15 @@ class CFGDataset(IterableDataset):
         
         full_sentences = []
         i= 0
+        
+        #save flattened sequences to a txt file
+      
         while len(full_sentences) < num_prompts:
             
             full_sentences.extend(np.split(self.flattened_sequences[1+i], np.where(self.flattened_sequences[1+i]==0)[0]))
             i +=1
         
-        full_sentences = full_sentences[:num_prompts]
+        full_sentences = full_sentences[1:num_prompts+1]
         if full_sentences[0][0] != self.sos_token:
             
             full_sentences[0] = np.insert(full_sentences[0], 0, self.sos_token)
@@ -161,7 +171,7 @@ def verify_dataloader(dataloader: DataLoader):
     
 if __name__ == "__main__":
     # Example usage
-    data_file = "/ocean/projects/cis250019p/sfragara/lstm/cfg_sentences_train_cfg3b.npy"
+    data_file = "/workspace/Thesis/cfg_sentences_val_cfg3b.npy"
 
     batch_size = 1
     seq_len = 200
@@ -172,11 +182,16 @@ if __name__ == "__main__":
     dataloader = DataLoader(dataset, batch_size=None, num_workers=12)
     
     #save all the batches to a txt file to check if they are correct
+    #dump flattened sequences to a txt file
+    print(dataset.flattened_sequences[:, :200])
     with open("cfg_sentences_train_cfg3b.txt", "w") as f:
+        f.write(dataset.flattened_sequences)
+            
+    """with open("cfg_sentences_train_cfg3b.txt", "w") as f:
         for x, y in dataloader:
             f.write("".join(x[0].numpy().astype(str)))
             f.write("\n")
             f.write("".join(y[0].numpy().astype(str)))
             f.write("\n")
     
-    verify_dataloader(dataloader)
+    verify_dataloader(dataloader)"""
