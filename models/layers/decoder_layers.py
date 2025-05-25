@@ -11,7 +11,7 @@ class SelfAttentionDecoderLayer(nn.Module):
     Pre-LN Decoder Layer with masked self-attention and feed-forward sublayers.
     Used in the decoder-only Transformer architecture.  
     '''
-    def __init__(self, d_model: int, num_heads: int, d_ff: int, dropout: float = 0.1):
+    def __init__(self, d_model: int, num_heads: int, d_ff: int, seq_len: int, dropout: float = 0.1):
         '''
         Initialize the SelfAttentionDecoderLayer. 
         Args:
@@ -24,7 +24,7 @@ class SelfAttentionDecoderLayer(nn.Module):
         # TODO: Implement __init__
        
         # TODO: Initialize the sublayers      
-        self.self_attn = SelfAttentionLayer(d_model, num_heads, dropout) # Masked self-attention layer
+        self.self_attn = SelfAttentionLayer(d_model, num_heads, seq_len, dropout) # Masked self-attention layer
         self.ffn = FeedForwardLayer(d_model, d_ff, dropout) # Feed-forward network
         
 

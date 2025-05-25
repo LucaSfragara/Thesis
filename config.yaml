@@ -39,7 +39,7 @@ loss: # Just good ol' CrossEntropy
 ###### Optimizer -----------------------------------------------------------------
 optimizer:
   name: "adamw" # Options: sgd, adam, adamw
-  lr: 0.0003   # Base learning rate
+  lr: 0.0004   # Base learning rate
 
   # Common parameters
   weight_decay: 0.01
@@ -101,7 +101,7 @@ scheduler:
 
   # CosineAnnealingLR specific parameters
   cosine:
-    eta_min: 1.0e-8  # Minimum learning rate
+    eta_min: 1.0e-6  # Minimum learning rate
     last_epoch: -1
 
   # CosineAnnealingWarmRestarts specific parameters
