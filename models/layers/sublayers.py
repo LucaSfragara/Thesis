@@ -108,7 +108,8 @@ class SelfAttentionLayer(nn.Module):
             use_separate_proj_weight=True,
             q_proj_weight=w_q,
             k_proj_weight=w_k,
-            v_proj_weight=w_v
+            v_proj_weight=w_v,
+            average_attn_weights=False,
         )
 
         # 7) Reshape back to [B, T, D]
