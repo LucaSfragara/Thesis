@@ -86,7 +86,6 @@ class SelfAttentionLayer(nn.Module):
         
         # 6) Call the functional attention
         attn_mask = torch.triu(torch.full((T, T), float("-inf"), device=x.device), diagonal=1)
-
         attn_out, attn_weights = multi_head_attention_forward(
             query=q,                 # [B, T, D]
             key=k,                   # [B, T, D]
