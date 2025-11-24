@@ -13,3 +13,4 @@ expts/
 wandb/
 *.npy
 *.pth
+gpt2_cfg

@@ -74,13 +74,14 @@ if __name__ == "__main__":
     print("total tokens", flat.shape[0])
     split = int(0.99 * len(flat))
     #save to text for debugging
-    #with open("cfg_sentences_train_cfg3b.txt", "w") as f:
-    #     
-    #f.write("".join(flat.astype(str)))
     print("Fist 200 tokens")
     print(flat[:200])
     np.save("cfg_sentences_train_cfg_simple.npy", flat[:split])
     np.save("cfg_sentences_val_cfg_simple.npy", flat[split:])
     print(f"Wrote {flat.nbytes/1e9:.2f} GB of both train and val")
+    
+    with open("cfg_sentences_train_simple.txt", "w") as f:
+        f.write("".join(flat.astype(str)))
+  
     
     
