@@ -1,4 +1,4 @@
-# CFG-Trained Transformer Thesis
+# Learning Hierarchical Structures with Autoregressive Language Modelling
 
 This repository contains the code for my thesis on training GPT-2 transformer models on context-free grammars (CFGs) and probing their learned representations to understand what syntactic and linguistic properties are captured.
 
