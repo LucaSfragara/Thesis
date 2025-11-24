@@ -62,7 +62,7 @@ Thesis/
 
 The project uses custom CFGs to generate synthetic language data:
 
-- **GRAMMAR_CFG3b**: Complex 3-level grammar with 22 non-terminals
+- **GRAMMAR_CFG3b**: Complex 3-level grammar with 22 non-terminals, inspired by Allen Zhou et al.
 - **GRAMMAR_SIMPLE**: Simplified version for debugging
 - Generates strings from alphabet {a, b, c} with special tokens (sos=0, eos=4)
 
