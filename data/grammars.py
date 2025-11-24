@@ -1,4 +1,3 @@
-from lib2to3.pgen2 import grammar
 from nltk import CFG
 
 grammar_cfg3b  = """

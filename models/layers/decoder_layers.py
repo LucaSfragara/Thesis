@@ -21,9 +21,8 @@ class SelfAttentionDecoderLayer(nn.Module):
             dropout (float): The dropout rate.
         ''' 
         super().__init__()
-        # TODO: Implement __init__
-       
-        # TODO: Initialize the sublayers      
+
+        # Initialize the sublayers
         self.self_attn = SelfAttentionLayer(d_model, num_heads, dropout) # Masked self-attention layer
         self.ffn = FeedForwardLayer(d_model, d_ff, dropout) # Feed-forward network
         
@@ -36,12 +35,9 @@ class SelfAttentionDecoderLayer(nn.Module):
             
         Returns:
             x (torch.Tensor): The output tensor. shape: (batch_size, seq_len, num_classes)
-            mha_attn_weights (torch.Tensor): The attention weights. shape: (batch_size, seq_len, seq_len)   
+            mha_attn_weights (torch.Tensor): The attention weights. shape: (batch_size, seq_len, seq_len)
         '''
-        # TODO: Implement forward: Follow the figure in the writeup
-        
         x, mha_attn_weights = self.self_attn.forward(x)
         x = self.ffn(x)
-        
-        # TODO: Return the output tensor and attention weights
+
         return x, mha_attn_weights

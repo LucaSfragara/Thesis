@@ -47,6 +47,16 @@ from pprint import pprint
 
 
 def parse_grammar(grammar_text):
+    """
+    Parse CFG grammar text and assign uniform probabilities to productions.
+
+    Args:
+        grammar_text: String containing grammar rules in format "LHS -> RHS symbols"
+
+    Returns:
+        dict: Dictionary mapping each LHS non-terminal to list of RHS expansions
+              (without probabilities in the returned dict)
+    """
     # First pass: collect all productions by LHS
     rules_temp = defaultdict(list)
     for line in grammar_text.strip().split('\n'):
@@ -67,6 +77,18 @@ def parse_grammar(grammar_text):
     return rules_temp
 
 def generate_derivations(symbol, rules, rule_probs, max_depth=10):
+    """
+    Generate all possible derivations from a symbol with their probabilities.
+
+    Args:
+        symbol: The symbol to generate derivations from
+        rules: Dictionary of grammar rules
+        rule_probs: Dictionary of rule probabilities
+        max_depth: Maximum recursion depth (default: 10)
+
+    Yields:
+        tuple: (string_tokens, probability) for each derivation
+    """
     if symbol not in rules:  # it's a terminal
         yield [symbol], 1.0
     else:
@@ -101,6 +123,18 @@ print("_______")
 # Recursive count with memoization
 @lru_cache(maxsize=None)
 def count_derivations(symbol):
+    """
+    Count the total number of derivations from a given symbol.
+
+    Uses memoization to efficiently count all possible derivation paths
+    from a symbol to terminal strings.
+
+    Args:
+        symbol: The non-terminal or terminal symbol to count from
+
+    Returns:
+        int: Total number of unique derivations from the symbol
+    """
     if symbol in terminals:
         return 1  # only one string: the terminal itself
 
@@ -177,6 +211,17 @@ def split_inside(rhs, s):
 
 
 def next_token_prob(prefix, t, start_symbol="22"):
+    """
+    Compute the probability of token t following a given prefix using the inside algorithm.
+
+    Args:
+        prefix: Tuple of tokens representing the prefix sequence
+        t: The candidate next token
+        start_symbol: The start symbol of the grammar (default: "22")
+
+    Returns:
+        float: Unnormalized probability that the start symbol generates prefix + (t,)
+    """
     # Represent prefix as a tuple of tokens.
     # Here we assume that our complete strings must end with an 'eos' token; if not, omit it.
     full = prefix + (t,)  # if you require an end-of-sequence marker, do: prefix + (t, "eos")

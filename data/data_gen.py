@@ -1,8 +1,5 @@
-import nltk
 from nltk import CFG
-from nltk.parse.generate import generate
 from tqdm import tqdm
-import pickle
 from grammars import GRAMMAR_CFG3b
 import numpy as np
 import random
@@ -44,9 +41,21 @@ def random_derivation(grammar, symbol=None):
         result.extend(random_derivation(grammar, rhs_sym))
     return result
 
-    
+
 def gen_sentence(_):
-    # generate one sentence, convert to idx array
+    """
+    Generate a single CFG sentence and convert to token indices.
+
+    This function generates one sentence using random derivations from the CFG,
+    adds SOS/EOS tokens, and converts to numerical indices.
+
+    Args:
+        _: Dummy argument (not used, for compatibility with multiprocessing)
+
+    Returns:
+        np.ndarray: Array of token indices (dtype=uint8) with SOS and EOS tokens
+                   Token mapping: {'sos': 0, 'a': 1, 'b': 2, 'c': 3, 'eos': 4}
+    """
     sent = random_derivation(GRAMMAR_CFG3b)
     sent.append("eos")  # add EOS token
     sent.insert(0, "sos")  # add SOS token

@@ -2,19 +2,21 @@ import torch
 from torch import nn
 import math
 
-'''
-TODO: Implement this Module.
+"""
+Positional Encoding Module.
 
 Specification:
-- Module should add positional information to input embeddings
+- Module adds positional information to input embeddings
 - Uses sinusoidal position encodings as described in "Attention Is All You Need"
-- Positional encoding matrix should have shape (1, max_len, d_model)
+- Positional encoding matrix has shape (1, max_len, d_model)
 - Even indices use sine functions, odd indices use cosine functions
 - Wavelengths form geometric progression from 2π to 10000·2π
-- Encoding values should be on same device as input tensor
-- Should handle any sequence length up to max_len
-- Should raise error if input sequence length exceeds max_len
-'''
+- Encoding values are on same device as input tensor
+- Handles any sequence length up to max_len
+- Raises error if input sequence length exceeds max_len
+
+Note: This module is currently not used in the main model (RoPE is used instead).
+"""
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len):
         """
@@ -68,14 +70,13 @@ class PositionalEncoding(nn.Module):
         Returns:
             torch.Tensor: Input with positional encoding added (B x T x d_model)
         Errors:
-            - ValueError: If sequence length exceeds maximum length 
+            - ValueError: If sequence length exceeds maximum length
         """
-        # TODO: Implement forward
-        # Step 1: Get sequence length from input tensor
+        # Get sequence length from input tensor
         seq_len = x.size(1)
-        # Step 2: Verify sequence length doesn't exceed maximum length, raise error if it does
+        # Verify sequence length doesn't exceed maximum length
         if seq_len > self.pe.size(1):
             raise ValueError(f"Sequence length {seq_len} exceeds the maximum length {self.pe.size(1)}")
-        # Step 3: Add positional encodings to input
-        out = self.pe[:, :x.size(1), :] + x 
+        # Add positional encodings to input
+        out = self.pe[:, :x.size(1), :] + x
         return out

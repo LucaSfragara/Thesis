@@ -23,7 +23,23 @@ os.makedirs(CHECKPOINT_PATH, exist_ok=True)
 MODEL_NAME = "lstm_e30_e128_h512-cfg3b.pth"
 
 def train(model, train_loader, optimizer, criterion, epoch, total_epochs):
-    
+    """
+    Train LSTM model for one epoch with scheduled teacher forcing.
+
+    Implements scheduled sampling where teacher forcing probability gradually
+    increases from 20% to 70% over the training period.
+
+    Args:
+        model: The LSTM model to train
+        train_loader: DataLoader providing training batches
+        optimizer: Optimizer for model parameters
+        criterion: Loss function
+        epoch: Current epoch number
+        total_epochs: Total number of epochs for training
+
+    Returns:
+        tuple: (average_loss, average_accuracy) for the epoch
+    """
     model.train()
     
     batch_bar = tqdm(total=len(train_loader), dynamic_ncols=True, leave=False, position=0, desc='Train')
@@ -104,9 +120,22 @@ def train(model, train_loader, optimizer, criterion, epoch, total_epochs):
     batch_bar.close()
             
     return total_loss/len(train_loader), total_accuracy/len(train_loader)
-                
-def validate_model(model:nn.Module, val_loader, criterion):
-    
+
+def validate_model(model: nn.Module, val_loader, criterion):
+    """
+    Validate LSTM model on validation set.
+
+    Performs autoregressive generation using teacher forcing at each step
+    to evaluate model performance.
+
+    Args:
+        model: The LSTM model to validate
+        val_loader: DataLoader providing validation batches
+        criterion: Loss function
+
+    Returns:
+        tuple: (average_loss, average_accuracy) on validation set
+    """
     model.eval()
     
     batch_bar = tqdm(total=len(val_loader), dynamic_ncols=True, leave=False, position=0, desc='Val')
@@ -174,16 +203,6 @@ x, y = next(iter(train_loader))
 
 print(summary(model, input_data = [x.to(device)]))
 
-
-"""
-wandb.login(key="11902c0c8e2c6840d72bf65f04894b432d85f019")
-
-wandb.init(
-        name = "LSTM-cfg3b"
-        project="thesis",
-        reinit = True,
-        )
-"""
 num_epochs = 30
 
 last_epoch_completed = 0
@@ -199,8 +218,6 @@ print("Last epoch completed: ", last_epoch_completed)
 
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=5e-5)
 
-#wandb.watch(model, log="all")
-
 for epoch in range(last_epoch_completed, num_epochs):
     
     print("\nEpoch: {}/{}".format(epoch + 1, num_epochs))
@@ -211,14 +228,10 @@ for epoch in range(last_epoch_completed, num_epochs):
     
     print("Train Loss: {:.04f}, Train Acc: {:.04f}".format(train_loss, train_acc))
     print("Val Loss: {:.04f}, Val Acc: {:.04f}".format(val_los, val_acc))
-    
-    #wandb.log({"train_loss": train_loss, "train_acc": train_acc, "val_loss": val_los, "val_acc": val_acc})
+
     scheduler.step()
     checkpoint_path = os.path.join(CHECKPOINT_PATH, MODEL_NAME)
     save_model(model, optimizer, None, ("val_loss", val_los), scaler, epoch, checkpoint_path)
-    #artifact = wandb.Artifact("LSTM-cfg3b", type="model")
-    #artifact.add_file(check_point_path)
-    #wandb.log_artifact(artifact)
 
 
     

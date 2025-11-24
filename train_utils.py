@@ -2,6 +2,18 @@ import torch
 
 
 def save_model(model, optimizer, scheduler, metric, scaler, epoch, path):
+    """
+    Save model checkpoint with training state.
+
+    Args:
+        model: The model to save
+        optimizer: The optimizer state
+        scheduler: Learning rate scheduler (can be None)
+        metric: Tuple of (metric_name, metric_value) e.g., ('val_loss', 0.5)
+        scaler: GradScaler for mixed precision training (can be None)
+        epoch: Current epoch number
+        path: Path to save the checkpoint
+    """
     torch.save(
         {'model_state_dict'         : model.state_dict(),
          'optimizer_state_dict'     : optimizer.state_dict(),
@@ -11,8 +23,22 @@ def save_model(model, optimizer, scheduler, metric, scaler, epoch, path):
          'epoch'                    : epoch},
          path
     )
-    
+
 def load_model(model, optimizer, scheduler, scaler, path):
+    """
+    Load model checkpoint and restore training state.
+
+    Args:
+        model: The model to load state into
+        optimizer: The optimizer to load state into
+        scheduler: Learning rate scheduler to load state into (can be None)
+        scaler: GradScaler to load state into (can be None)
+        path: Path to the checkpoint file
+
+    Returns:
+        list: [model, optimizer, scheduler, epoch, metric_value]
+              Where metric_value is the validation loss from the checkpoint
+    """
     checkpoint = torch.load(path)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])

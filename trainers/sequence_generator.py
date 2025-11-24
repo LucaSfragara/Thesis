@@ -228,9 +228,9 @@ class SequenceGenerator:
             raise ValueError("beam_width must be >= 1")
         if self.max_length < x.size(1):
             raise ValueError("max_length must be >= input sequence length")
-        
-        # TODO: Implement beam search
-        raise NotImplementedError # Remove once implemented
+
+        # Beam search not yet implemented
+        raise NotImplementedError
 
     def generate_sample(
             self,

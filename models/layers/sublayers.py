@@ -26,14 +26,14 @@ class SelfAttentionLayer(nn.Module):
         assert d_model % num_heads == 0
 
         self.rotary = RotaryEmbedding(self.head_dim, 2048) # Initialize rotary embedding
-        
-        # TODO: Initialize the multi-head attention mechanism (use nn.MultiheadAttention)
+
+        # Initialize the multi-head attention mechanism
         self.mha = nn.MultiheadAttention(d_model, num_heads, dropout, batch_first=True)
-        
-        # TODO: Initialize the normalization layer (use nn.LayerNorm)
+
+        # Initialize the normalization layer
         self.norm = nn.LayerNorm(d_model)
-        
-        # TODO: Initialize the dropout layer
+
+        # Initialize the dropout layer
         self.dropout = nn.Dropout(dropout)
         
 
@@ -154,21 +154,19 @@ class FeedForwardLayer(nn.Module):
             dropout (float): The dropout rate.
         '''
         super().__init__()
-        # TODO: Implement __init__
 
-        # TODO: Initialize the feed-forward network (use nn.Sequential)
-        # See writeup for what layers to use
+        # Initialize the feed-forward network
         self.ffn = nn.Sequential(
-            nn.Linear(d_model, d_ff), 
-            nn.GELU(), 
+            nn.Linear(d_model, d_ff),
+            nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(d_ff, d_model)
         )
-        
-        # TODO: Initialize the normalization layer
+
+        # Initialize the normalization layer
         self.norm = nn.LayerNorm(d_model)
-        
-        # TODO: Initialize the dropout layer
+
+        # Initialize the dropout layer
         self.dropout = nn.Dropout(dropout)
        
 

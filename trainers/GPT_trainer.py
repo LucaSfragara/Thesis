@@ -1,7 +1,4 @@
 
-from curses import raw
-from logging import config
-from multiprocessing import process
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -9,8 +6,6 @@ from typing import Dict, Tuple, Any, Optional, List
 from trainers.base_trainer import BaseTrainer
 from itertools import islice
 from trainers.sequence_generator import SequenceGenerator
-#from ..utils import create_scheduler
-#from ..decoding.sequence_generator import SequenceGenerator
 import numpy as np
 class GPT_Trainer(BaseTrainer):
    
@@ -303,7 +298,7 @@ class GPT_Trainer(BaseTrainer):
                 seqs = seqs[:, 0]
                 scores = scores[:, 0]
             else:
-                # TODO: Use the prompts and the generate_greedy method you implemented in the SequenceGenerator class to generate sequences
+                # Use greedy search for generation
                 print("Generating with greedy search...")
                 seqs, scores = generator.generate_greedy(
                     prompts,     
@@ -356,9 +351,9 @@ class GPT_Trainer(BaseTrainer):
             'top_k': 0,
             'top_p': 0.0
         })
-        
-        #TODO: add multinomial sampling config
-        
+
+        # Multinomial sampling config not yet implemented
+
         return {
             'greedy': greedy_config,
             'multinomial': NotImplementedError

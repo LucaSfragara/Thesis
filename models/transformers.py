@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import random
 from typing import Tuple, Optional
-#from models.layers.positional_embedding import PositionalEncoding
 from models.masks import PadMask, CausalMask
 from models.layers.decoder_layers import SelfAttentionDecoderLayer
 
@@ -38,8 +37,6 @@ class DecoderOnlyTransformer(nn.Module):
             layer_drop_rate: float, layer drop rate (default: 0.0)
         '''
         super().__init__()
-        
-        # TODO: Implement __init__
 
         # Initialize the decoder
         # DO NOT MODIFY THESE ATTRIBUTES
@@ -47,16 +44,14 @@ class DecoderOnlyTransformer(nn.Module):
         self.layer_drop_rate = layer_drop_rate
         self.num_classes     = num_classes
         self.num_layers      = num_layers
-        
-        # TODO: Create a ModuleList of decoder layers based on the number of layers
+
+        # Create ModuleList of decoder layers
         self.dec_layers     = nn.ModuleList(
             [(SelfAttentionDecoderLayer(d_model, num_heads, d_ff, dropout)) for _ in range(num_layers)]
         ) # ModuleList of decoder layers
 
-        # TODO: Create target embedding and other layers
+        # Create target embedding and other layers
         self.target_embedding       = nn.Embedding(num_classes, d_model)
-        
-        #self.positional_encoding    = PositionalEncoding(d_model, seq_len) # Positional encoding
         self.final_linear           = nn.Linear(d_model, num_classes) # Final linear layer
         self.dropout                = nn.Dropout(dropout) # Dropout
         self.norm                   = nn.LayerNorm(d_model) # Layer norm
@@ -74,36 +69,31 @@ class DecoderOnlyTransformer(nn.Module):
             padded_targets (torch.Tensor): The padded target sequence. shape: (batch_size, seq_len)
         Returns:
             seq_out (torch.Tensor): The output sequence. shape: (batch_size, seq_len, d_model)
-            runnint_att (dict): The attention weights. shape: (batch_size, seq_len, seq_len)
+            running_attn (dict): The attention weights. shape: (batch_size, seq_len, seq_len)
         '''
-    
-        x = self.target_embedding(padded_targets)
 
-        #x = self.positional_encoding(x)
-  
-  
+        x = self.target_embedding(padded_targets)
         x = self.dropout(x)
 
-        # TODO: Pass through all decoder layers, save attention masks
-        runnint_att = {}
+        # Pass through all decoder layers, save attention masks
+        running_attn = {}
         for i in range(self.num_layers):
             # Optionally apply LayerDrop during training (More regularization!)
             if self.training and self.layer_drop_rate > 0 and random.random() < self.layer_drop_rate:
                 continue
-            
-            # TODO: Pass through decoder layer
-            x, attention = self.dec_layers[i](x)
-            
-            # TODO: Save attention weights  
-            runnint_att['layer{}_dec_self'.format(i + 1)] = attention #shape (batch_size, seq_len, seq_len) 
 
-        # TODO: Apply normalization
+            # Pass through decoder layer
+            x, attention = self.dec_layers[i](x)
+
+            # Save attention weights
+            running_attn['layer{}_dec_self'.format(i + 1)] = attention #shape (batch_size, seq_len, seq_len)
+
+        # Apply normalization
         x = self.norm(x)
-        # TODO: Linear layer (Final Projection) for next character prediction
+        # Final projection for next character prediction
         seq_out = self.final_linear(x)
-        
-        # TODO: Return the output sequence and running attention weights
-        return seq_out, runnint_att
+
+        return seq_out, running_attn
     
     def score(self, batch_prompts: torch.Tensor) -> torch.Tensor:
         '''
