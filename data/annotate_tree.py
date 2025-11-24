@@ -5,7 +5,7 @@ sys.path.append("..")
 import numpy as np
 
 import nltk
-from data.grammars import GRAMMAR_CFG3b_string
+from grammars import GRAMMAR_CFG3b_string
 from functools import lru_cache
 
 from pprint import pprint
@@ -37,12 +37,12 @@ from pprint import pprint
 11 -> 7 8 9
 12 -> 8 9 7
 12 -> 9 7 8
-7 -> "c" "a"
-7 -> "a" "b" "c"
-8 -> "c" "b"
-8 -> "c" "a" "b"
-9 -> "c" "b" "a"
-9 -> "b" "a" 
+7 -> c a
+7 -> a b c
+8 -> c b
+8 -> c a b
+9 -> c b a
+9 -> b a 
 """
 
 
@@ -64,7 +64,7 @@ def parse_grammar(grammar_text):
         # Each rule for this LHS gets probability 1/n
         rules[lhs] = [(expansion, 1.0/n) for expansion in expansions]
     
-    return rules
+    return rules_temp
 
 def generate_derivations(symbol, rules, rule_probs, max_depth=10):
     if symbol not in rules:  # it's a terminal
@@ -90,6 +90,7 @@ pprint(grammar)
 nonterminals = set(grammar.keys())
 
 all_symbols = {s for rhs_list in grammar.values() for rhs in rhs_list for s in rhs[0]}
+
 terminals = all_symbols - nonterminals
 print(all_symbols)
 print("______")
@@ -104,6 +105,7 @@ def count_derivations(symbol):
         return 1  # only one string: the terminal itself
 
     total = 0
+    #print(grammar[symbol])
     for rhs in grammar[symbol]:
         prod = 1
         for sym in rhs:
@@ -112,7 +114,10 @@ def count_derivations(symbol):
     return total
 
 # Total number of sentences from start symbol "22"
-#print("Total derivable terminal strings from '22':", f"{count_derivations('22'):.{2}e}")
+print("Total derivable terminal strings from '22':", f"{count_derivations('22')}")
+
+
+
 
 @lru_cache(maxsize=None)
 def inside(symbol, s):
@@ -177,7 +182,7 @@ def next_token_prob(prefix, t, start_symbol="22"):
     full = prefix + (t,)  # if you require an end-of-sequence marker, do: prefix + (t, "eos")
     return inside(start_symbol, full)
 
-print(inside("9", ("c","b","a")))
+#print(inside("9", ("c","b","a")))
 
 """
 # Compute the unnormalized distribution:
@@ -198,4 +203,4 @@ next_token_distribution = {token: p / total for token, p in cand_probs.items()}
 
 print("Next token distribution:", next_token_distribution)
 """
-inside.cache_clear()
+#inside.cache_clear()

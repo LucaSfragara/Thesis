@@ -3,7 +3,7 @@ from nltk import CFG
 from nltk.parse.generate import generate
 from tqdm import tqdm
 import pickle
-from grammars import GRAMMAR_SIMPLE#GRAMMAR_CFG3b
+from grammars import GRAMMAR_CFG3b
 import numpy as np
 import random
 from multiprocessing import Pool, cpu_count
@@ -47,14 +47,14 @@ def random_derivation(grammar, symbol=None):
     
 def gen_sentence(_):
     # generate one sentence, convert to idx array
-    sent = random_derivation(GRAMMAR_SIMPLE)
+    sent = random_derivation(GRAMMAR_CFG3b)
     sent.append("eos")  # add EOS token
     sent.insert(0, "sos")  # add SOS token
     return np.array([terminals_to_idx[t] for t in sent], dtype=np.uint8)
 
 if __name__ == "__main__":
 
-    length = 8_000_000  # number of sentences to generate
+    length = 1000  # number of sentences to generate
     n_procs = min(cpu_count(), 64)    # or whatever cap you want
     print("Generating sentences with", n_procs, "processes")
     with Pool(n_procs) as pool:
@@ -62,7 +62,11 @@ if __name__ == "__main__":
         data = list(tqdm(pool.imap(gen_sentence, range(length)),
                          total=length,
                          desc="Generating CFG sentences"))
-    
+    #save the first string to a text file
+    print("Saving sentences to text file")
+    with open("cfg_sentences_train_cfg_simple.txt", "w") as f:
+        f.write("".join([str(t) for t in data[0]]))
+     
     print("Lenghts Quartiles: ")
     print(np.percentile([len(d) for d in data], [25, 50, 75]))
     # split train/val
